@@ -1,4 +1,4 @@
-export const defaultPlayerOrder = ['Nicolas', 'Jean', 'Anthony'] as const;
+export const defaultPlayerOrder: string[] = ['Nicolas', 'Jean', 'Anthony'];
 export const referenceRotationDate = '2026-06-15';
 export type Outcome = 'HOME' | 'AWAY' | 'DRAW';
 export type PossessionPick = 'HOME' | 'AWAY' | 'EQUAL';
@@ -10,7 +10,7 @@ const dayMs = 24 * 60 * 60 * 1000;
 export function dateKeyInTimezone(date: Date, timeZone = 'Asia/Dubai') {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
-export function dailyOrder(date: Date, playerOrder = [...defaultPlayerOrder], timeZone = 'Asia/Dubai', referenceDate = referenceRotationDate) {
+export function dailyOrder(date: Date, playerOrder: string[] = defaultPlayerOrder, timeZone = 'Asia/Dubai', referenceDate = referenceRotationDate): string[] {
   const key = dateKeyInTimezone(date, timeZone);
   const elapsed = Math.floor((Date.parse(`${key}T00:00:00Z`) - Date.parse(`${referenceDate}T00:00:00Z`)) / dayMs);
   const start = ((elapsed % playerOrder.length) + playerOrder.length) % playerOrder.length;

@@ -38,6 +38,35 @@ const predictionSchema = z.object({
 type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null };
 
 const memoryStore = globalThis as typeof globalThis & { wc2026PredictionState?: PredictionState; wc2026Predictions?: StoredPrediction[] };
+const manualPredictionOverrides: Array<{
+  fixtureId: string;
+  userName: string;
+  before: string;
+  possession?: string;
+  firstGoalscorer?: string;
+}> = [
+  {
+    fixtureId: 'match-14',
+    userName: 'Anthony',
+    before: '2026-06-15T17:15:00.000Z',
+    possession: 'HOME',
+    firstGoalscorer: 'Lamine Yamal',
+  },
+];
+
+function applyManualOverrides(predictions: StoredPrediction[]) {
+  return predictions.map((prediction) => {
+    const override = manualPredictionOverrides.find((candidate) =>
+      candidate.fixtureId === prediction.fixtureId &&
+      candidate.userName === prediction.userName &&
+      new Date(prediction.submittedAt).getTime() <= new Date(candidate.before).getTime()
+    );
+
+    if (!override) return prediction;
+    const { before: _before, ...fields } = override;
+    return { ...prediction, ...fields };
+  });
+}
 
 function redisConfig() {
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
@@ -85,7 +114,7 @@ async function writeState(state: PredictionState) {
 }
 
 async function readPredictions(): Promise<StoredPrediction[]> {
-  return (await readState()).predictions;
+  return applyManualOverrides((await readState()).predictions);
 }
 
 async function writePredictions(predictions: StoredPrediction[]) {
@@ -99,7 +128,7 @@ async function clearPredictions() {
 
 export async function GET() {
   const state = await readState();
-  return NextResponse.json({ ...state, persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ...state, predictions: applyManualOverrides(state.predictions), persistence: redisConfig() ? 'redis' : 'memory' });
 }
 
 export async function POST(request: Request) {

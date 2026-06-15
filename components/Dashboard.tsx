@@ -8,6 +8,7 @@ import { PredictionCard, type ExtendedPrediction } from './PredictionCard';
 const storedPredictionsKey = 'wc2026.predictions.v1';
 
 type StoredPrediction = ExtendedPrediction & { fixtureId: string };
+type PredictionBackup = { predictions: StoredPrediction[]; resetAt: string | null };
 
 function withDefaultOptions(prediction: PredictionRecord & { fixtureId: string } & Partial<StoredPrediction>): StoredPrediction {
   return {
@@ -60,6 +61,7 @@ export function Dashboard() {
   const model = dashboardModel();
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
   const [syncStatus, setSyncStatus] = useState('Loading shared predictions…');
+  const [resetAt, setResetAt] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,14 +72,17 @@ export function Dashboard() {
       try {
         const response = await fetch('/api/predictions', { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to load shared predictions');
-        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string };
+        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string; resetAt: string | null };
         if (!active) return;
 
         const remotePredictions = payload.predictions.map(revivePrediction);
-        const mergedPredictions = mergePredictions(remotePredictions, localBackup);
+        const remoteResetIsNewer = payload.resetAt && (!localBackup.resetAt || new Date(payload.resetAt).getTime() > new Date(localBackup.resetAt).getTime());
+        const localPredictions = remoteResetIsNewer ? [] : localBackup.predictions;
+        const mergedPredictions = mergePredictions(remotePredictions, localPredictions);
         setPredictions(mergedPredictions);
+        setResetAt(payload.resetAt);
 
-        if (localBackup.length > 0 && mergedPredictions.length > remotePredictions.length) {
+        if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
           await saveAllPredictions(mergedPredictions);
           setSyncStatus('Restored local backup to shared store');
           return;
@@ -85,34 +90,42 @@ export function Dashboard() {
 
         setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Temporary server memory - configure Vercel KV for worldwide sync');
       } catch {
-        if (localBackup.length === 0) {
+        if (localBackup.predictions.length === 0) {
           setSyncStatus('Offline fallback only - shared store unavailable');
           return;
         }
 
-        if (active) setPredictions(localBackup);
+        if (active) setPredictions(localBackup.predictions);
+        setResetAt(localBackup.resetAt);
         setSyncStatus('Offline fallback loaded from this browser');
       }
     }
 
     loadSharedPredictions();
-    return () => { active = false; };
+    const interval = window.setInterval(loadSharedPredictions, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
-    if (predictions.length > 0) window.localStorage.setItem(storedPredictionsKey, JSON.stringify(predictions));
-  }, [predictions]);
+    window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions, resetAt }));
+  }, [predictions, resetAt]);
 
-  function readLocalBackup() {
+  function readLocalBackup(): PredictionBackup {
     const stored = window.localStorage.getItem(storedPredictionsKey);
-    if (!stored) return [] as StoredPrediction[];
+    if (!stored) return { predictions: [], resetAt: null };
 
     try {
-      return (JSON.parse(stored) as StoredPrediction[]).map(revivePrediction);
+      const parsed = JSON.parse(stored) as PredictionBackup | StoredPrediction[];
+      if (Array.isArray(parsed)) return { predictions: parsed.map(revivePrediction), resetAt: null };
+      return { predictions: (parsed.predictions ?? []).map(revivePrediction), resetAt: parsed.resetAt ?? null };
     } catch {
-      return [] as StoredPrediction[];
+      return { predictions: [], resetAt: null };
     }
   }
+
 
   async function saveAllPredictions(nextPredictions: StoredPrediction[]) {
     const response = await fetch('/api/predictions', {
@@ -125,13 +138,14 @@ export function Dashboard() {
 
   async function restoreLocalBackup() {
     const localBackup = readLocalBackup();
-    if (localBackup.length === 0) {
+    if (localBackup.predictions.length === 0) {
       setSyncStatus('No local backup found on this browser');
       return;
     }
 
-    setPredictions(localBackup);
-    await saveAllPredictions(localBackup);
+    setPredictions(localBackup.predictions);
+    setResetAt(localBackup.resetAt);
+    await saveAllPredictions(localBackup.predictions);
     setSyncStatus('Local backup restored to shared store');
   }
 
@@ -142,7 +156,10 @@ export function Dashboard() {
     try {
       const response = await fetch('/api/predictions', { method: 'DELETE' });
       if (!response.ok) throw new Error('Could not reset shared predictions');
-      setSyncStatus('Bets reset - Nicolas is back on turn');
+      const payload = await response.json() as { resetAt?: string | null };
+      setResetAt(payload.resetAt ?? new Date().toISOString());
+      window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: [], resetAt: payload.resetAt ?? new Date().toISOString() }));
+      setSyncStatus('Bets reset everywhere - Nicolas is back on turn');
     } catch {
       setSyncStatus('Local bets reset, but shared reset failed');
     }
@@ -162,9 +179,10 @@ export function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prediction),
       });
-      const payload = await response.json() as { predictions?: StoredPrediction[]; persistence?: string; reason?: string };
+      const payload = await response.json() as { predictions?: StoredPrediction[]; persistence?: string; reason?: string; resetAt?: string | null };
       if (!response.ok) throw new Error(payload.reason ?? 'Prediction rejected');
       if (payload.predictions) setPredictions(payload.predictions.map(revivePrediction));
+      setResetAt(payload.resetAt ?? null);
       setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Saved on server memory - configure Vercel KV for durable worldwide sync');
     } catch (error) {
       setSyncStatus(error instanceof Error ? error.message : 'Could not save shared prediction');

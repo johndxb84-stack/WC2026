@@ -35,7 +35,9 @@ const predictionSchema = z.object({
   awayPenaltyScore: z.number().int().min(0).optional(),
 });
 
-const memoryStore = globalThis as typeof globalThis & { wc2026Predictions?: StoredPrediction[] };
+type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null };
+
+const memoryStore = globalThis as typeof globalThis & { wc2026PredictionState?: PredictionState; wc2026Predictions?: StoredPrediction[] };
 
 function redisConfig() {
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
@@ -62,25 +64,42 @@ async function redisCommand<T>(command: unknown[]): Promise<T | null> {
   return payload.result;
 }
 
-async function readPredictions(): Promise<StoredPrediction[]> {
+function parseState(raw: string | null): PredictionState {
+  if (!raw) {
+    return memoryStore.wc2026PredictionState ?? { predictions: memoryStore.wc2026Predictions ?? [], resetAt: null };
+  }
+
+  const parsed = JSON.parse(raw) as PredictionState | StoredPrediction[];
+  return Array.isArray(parsed) ? { predictions: parsed, resetAt: null } : { predictions: parsed.predictions ?? [], resetAt: parsed.resetAt ?? null };
+}
+
+async function readState(): Promise<PredictionState> {
   const remote = await redisCommand<string>(['GET', storeKey]);
-  if (remote) return JSON.parse(remote) as StoredPrediction[];
-  return memoryStore.wc2026Predictions ?? [];
+  return parseState(remote);
+}
+
+async function writeState(state: PredictionState) {
+  const serialized = JSON.stringify(state);
+  const remote = await redisCommand<string>(['SET', storeKey, serialized]);
+  if (remote === null) memoryStore.wc2026PredictionState = state;
+}
+
+async function readPredictions(): Promise<StoredPrediction[]> {
+  return (await readState()).predictions;
 }
 
 async function writePredictions(predictions: StoredPrediction[]) {
-  const serialized = JSON.stringify(predictions);
-  const remote = await redisCommand<string>(['SET', storeKey, serialized]);
-  if (remote === null) memoryStore.wc2026Predictions = predictions;
+  const current = await readState();
+  await writeState({ predictions, resetAt: current.resetAt });
 }
 
 async function clearPredictions() {
-  const remote = await redisCommand<number>(['DEL', storeKey]);
-  if (remote === null) memoryStore.wc2026Predictions = [];
+  await writeState({ predictions: [], resetAt: new Date().toISOString() });
 }
 
 export async function GET() {
-  return NextResponse.json({ predictions: await readPredictions(), persistence: redisConfig() ? 'redis' : 'memory' });
+  const state = await readState();
+  return NextResponse.json({ ...state, persistence: redisConfig() ? 'redis' : 'memory' });
 }
 
 export async function POST(request: Request) {
@@ -94,7 +113,8 @@ export async function POST(request: Request) {
 
   const predictions = [...withoutDuplicateUser, prediction];
   await writePredictions(predictions);
-  return NextResponse.json({ ok: true, predictions, persistence: redisConfig() ? 'redis' : 'memory' });
+  const state = await readState();
+  return NextResponse.json({ ok: true, predictions, resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
 }
 
 
@@ -110,10 +130,12 @@ export async function PUT(request: Request) {
   }
 
   await writePredictions(deduped);
-  return NextResponse.json({ ok: true, predictions: deduped, persistence: redisConfig() ? 'redis' : 'memory' });
+  const state = await readState();
+  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
 }
 
 export async function DELETE() {
   await clearPredictions();
-  return NextResponse.json({ ok: true, predictions: [], persistence: redisConfig() ? 'redis' : 'memory' });
+  const state = await readState();
+  return NextResponse.json({ ok: true, predictions: [], resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
 }

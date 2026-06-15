@@ -8,6 +8,8 @@ type Fixture = {
   homeTeam: string;
   awayTeam: string;
   kickoff: Date;
+  homeSquad: string[];
+  awaySquad: string[];
   goalscorerOptions: string[];
 };
 
@@ -136,7 +138,13 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
             <option value="NA">N/A - no first scorer bet</option>
             <option value="NO_GOALSCORER">No goalscorer</option>
             <option value="OWN_GOAL">Own goal</option>
-            {fixture.goalscorerOptions.map((player) => <option key={player} value={player}>{player}</option>)}
+            <optgroup label={fixture.homeTeam}>
+              {fixture.homeSquad.map((player) => <option key={`${fixture.homeTeam}-${player}`} value={player}>{player}</option>)}
+            </optgroup>
+            <optgroup label={fixture.awayTeam}>
+              {fixture.awaySquad.map((player) => <option key={`${fixture.awayTeam}-${player}`} value={player}>{player}</option>)}
+            </optgroup>
+            <option value="MANUAL">Player not listed / manual selection</option>
           </select>
         </label>
       </div>

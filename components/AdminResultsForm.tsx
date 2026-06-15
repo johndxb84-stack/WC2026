@@ -66,7 +66,7 @@ export function AdminResultsForm() {
         Match
         <select name="fixtureId" className="rounded-2xl bg-slate-800 p-3 text-white" required>
           {fixtures.map((fixture) => (
-            <option key={fixture.id} value={fixture.id}>{fixture.homeTeam.name} vs {fixture.awayTeam.name}</option>
+            <option key={fixture.id} value={fixture.id}>{fixture.homeTeam} vs {fixture.awayTeam}</option>
           ))}
         </select>
       </label>

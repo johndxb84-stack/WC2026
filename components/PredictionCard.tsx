@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { currentEligiblePlayer, shouldReveal, validatePrediction, type PredictionRecord } from '@/lib/domain';
 
 type Fixture = {
@@ -34,15 +34,6 @@ function parseScore(value: string) {
 }
 
 export function PredictionCard({ fixture, order, initialPredictions, onPredictionSubmitted }: { fixture: Fixture; order: string[]; initialPredictions: PredictionRecord[]; onPredictionSubmitted?: (prediction: ExtendedPrediction & { fixtureId: string }) => void }) {
-  const [predictions, setPredictions] = useState<ExtendedPrediction[]>(
-    initialPredictions.map((prediction) => ({
-      ...prediction,
-      possession: 'NA',
-      firstGoalscorer: 'NA',
-      extraTimeApplicable: false,
-      penaltiesApplicable: false,
-    })),
-  );
   const [homeScore, setHomeScore] = useState(emptyScore.home);
   const [awayScore, setAwayScore] = useState(emptyScore.away);
   const [possession, setPossession] = useState<OptionalPick>('NA');
@@ -55,23 +46,14 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
   const [awayPenaltyScore, setAwayPenaltyScore] = useState('0');
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    setPredictions(initialPredictions.map((prediction) => ({
-      ...prediction,
-      possession: 'NA',
-      firstGoalscorer: 'NA',
-      extraTimeApplicable: false,
-      penaltiesApplicable: false,
-    })));
-  }, [initialPredictions]);
 
-  const currentPlayer = currentEligiblePlayer(order, predictions);
-  const reveal = shouldReveal(order, predictions, { id: fixture.id, kickoff: fixture.kickoff });
+  const currentPlayer = currentEligiblePlayer(order, initialPredictions);
+  const reveal = shouldReveal(order, initialPredictions, { id: fixture.id, kickoff: fixture.kickoff });
   const parsedHomeScore = parseScore(homeScore);
   const parsedAwayScore = parseScore(awayScore);
   const scoreKey = `${parsedHomeScore}-${parsedAwayScore}`;
   const scoreIsComplete = Number.isInteger(parsedHomeScore) && Number.isInteger(parsedAwayScore) && parsedHomeScore >= 0 && parsedAwayScore >= 0;
-  const takenScores = useMemo(() => new Set(predictions.filter((prediction) => !prediction.forfeited).map((prediction) => `${prediction.homeScore}-${prediction.awayScore}`)), [predictions]);
+  const takenScores = useMemo(() => new Set(initialPredictions.filter((prediction) => !prediction.forfeited).map((prediction) => `${prediction.homeScore}-${prediction.awayScore}`)), [initialPredictions]);
 
   function submitPrediction() {
     if (!currentPlayer) {
@@ -83,7 +65,7 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
     const validation = validatePrediction(
       { id: fixture.id, kickoff: fixture.kickoff },
       order,
-      predictions,
+      initialPredictions,
       { userName: currentPlayer, homeScore: parsedHomeScore, awayScore: parsedAwayScore, submittedAt },
     );
 
@@ -108,7 +90,6 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
       awayPenaltyScore: penaltiesApplicable ? parseScore(awayPenaltyScore) : undefined,
     };
 
-    setPredictions((existing) => [...existing, nextPrediction]);
     onPredictionSubmitted?.(nextPrediction);
     setMessage(`${currentPlayer} submitted ${parsedHomeScore}-${parsedAwayScore}. Next player can now bet.`);
     setHomeScore('0');
@@ -196,7 +177,7 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
         <p>Extra time and penalties can be marked N/A when you believe they will not apply.</p>
       </div>
 
-      {reveal ? <div className="mt-4 space-y-2"><h4 className="font-bold">Revealed bets</h4>{predictions.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore}</p>)}</div> : null}
+      {reveal ? <div className="mt-4 space-y-2"><h4 className="font-bold">Revealed bets</h4>{initialPredictions.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore}</p>)}</div> : null}
     </section>
   );
 }

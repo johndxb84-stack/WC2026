@@ -75,3 +75,16 @@ You can also open `https://YOUR_DOMAIN/api/predictions` in a browser and save th
 Automatic scoring is additive and does not overwrite submitted bets. Predictions remain in `wc2026:predictions:v1`; final results and calculated scores are stored separately by `/api/results`. The `/api/sync` endpoint is wired for Vercel Cron and calls the configured football provider. With the current mock provider, no official results are settled automatically until a real provider implementation and API key are configured.
 
 For safety before enabling a real provider, download a backup of predictions from the dashboard. The leaderboard cards read settled totals from `/api/results`, so submitted bets stay intact while scoring can be recalculated from official results.
+
+
+### Enabling live score fetching with API-Football
+
+Set `FOOTBALL_PROVIDER=api-football`, add `API_FOOTBALL_KEY`, and map each app fixture id to the provider fixture id in `FOOTBALL_FIXTURE_ID_MAP`. Example:
+
+```env
+FOOTBALL_PROVIDER="api-football"
+API_FOOTBALL_KEY="your-api-football-key"
+FOOTBALL_FIXTURE_ID_MAP='{"match-14":"123456","match-16":"123457"}'
+```
+
+The Vercel Cron job calls `/api/sync`, which asks the provider for final results. Confirmed final results are posted to `/api/results` and settled without modifying existing bets.

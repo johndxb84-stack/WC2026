@@ -38,23 +38,26 @@ const predictionSchema = z.object({
 type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null };
 
 const memoryStore = globalThis as typeof globalThis & { wc2026PredictionState?: PredictionState; wc2026Predictions?: StoredPrediction[] };
-const manualPredictionOverrides: Array<{
+type ManualPredictionOverride = {
   fixtureId: string;
   userName: string;
   before: string;
-  possession?: string;
-  firstGoalscorer?: string;
-}> = [
+  fields: Pick<StoredPrediction, 'possession' | 'firstGoalscorer'>;
+};
+
+const manualPredictionOverrides: ManualPredictionOverride[] = [
   {
     fixtureId: 'match-14',
     userName: 'Anthony',
     before: '2026-06-15T17:15:00.000Z',
-    possession: 'HOME',
-    firstGoalscorer: 'Lamine Yamal',
+    fields: {
+      possession: 'HOME',
+      firstGoalscorer: 'Lamine Yamal',
+    },
   },
 ];
 
-function applyManualOverrides(predictions: StoredPrediction[]) {
+function applyManualOverrides(predictions: StoredPrediction[]): StoredPrediction[] {
   return predictions.map((prediction) => {
     const override = manualPredictionOverrides.find((candidate) =>
       candidate.fixtureId === prediction.fixtureId &&
@@ -62,9 +65,7 @@ function applyManualOverrides(predictions: StoredPrediction[]) {
       new Date(prediction.submittedAt).getTime() <= new Date(candidate.before).getTime()
     );
 
-    if (!override) return prediction;
-    const { before: _before, ...fields } = override;
-    return { ...prediction, ...fields };
+    return override ? { ...prediction, ...override.fields } : prediction;
   });
 }
 

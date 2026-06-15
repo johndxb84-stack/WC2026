@@ -24,6 +24,17 @@ function revivePrediction(prediction: StoredPrediction): StoredPrediction {
   return withDefaultOptions(prediction);
 }
 
+function formatOptional(value: unknown) {
+  if (value === undefined || value === null || value === '' || value === 'NA') return 'N/A';
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return String(value);
+}
+
+function formatScore(home?: number, away?: number) {
+  return typeof home === 'number' && typeof away === 'number' ? `${home}-${away}` : 'N/A';
+}
+
 export function Dashboard() {
   const model = dashboardModel();
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
@@ -130,7 +141,7 @@ export function Dashboard() {
             const currentIndex = current ? model.order.indexOf(current) : -1;
             const nextPlayer = currentIndex >= 0 ? model.order[currentIndex + 1] : undefined;
             const reveal = shouldReveal(model.order, fixturePredictions, { id: fixture.id, kickoff: fixture.kickoff });
-            const predictionRecords: PredictionRecord[] = fixturePredictions;
+            const predictionRecords = fixturePredictions;
 
             return (
               <article className="glass rounded-3xl p-6" key={fixture.id}>
@@ -155,7 +166,34 @@ export function Dashboard() {
                 </div>
                 <div className="mt-4">
                   <h3 className="font-bold">Predictions</h3>
-                  {reveal ? predictionRecords.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore}</p>) : <p className="text-white/60">Hidden until all players submit or kickoff passes.</p>}
+                  {reveal ? (
+                    <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
+                      <table className="w-full min-w-[760px] text-left text-sm">
+                        <thead className="bg-white/10 text-white">
+                          <tr>
+                            <th className="p-3">Player</th>
+                            <th className="p-3">90-min score</th>
+                            <th className="p-3">Possession</th>
+                            <th className="p-3">First scorer</th>
+                            <th className="p-3">Extra time</th>
+                            <th className="p-3">Penalties</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {predictionRecords.map((prediction) => (
+                            <tr className="border-t border-white/10 text-white/80" key={prediction.userName}>
+                              <td className="p-3 font-bold text-white">{prediction.userName}</td>
+                              <td className="p-3">{prediction.homeScore}-{prediction.awayScore}</td>
+                              <td className="p-3">{formatOptional(prediction.possession)}</td>
+                              <td className="p-3">{formatOptional(prediction.firstGoalscorer)}</td>
+                              <td className="p-3">{prediction.extraTimeApplicable ? formatScore(prediction.homeScoreExtraTime, prediction.awayScoreExtraTime) : 'N/A'}</td>
+                              <td className="p-3">{prediction.penaltiesApplicable ? formatScore(prediction.homePenaltyScore, prediction.awayPenaltyScore) : 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <p className="text-white/60">Hidden until all players submit or kickoff passes.</p>}
                 </div>
                 <PredictionCard fixture={fixture} order={model.order} initialPredictions={predictionRecords} onPredictionSubmitted={recordPrediction} />
                 <a className="mt-5 inline-block rounded-full bg-flood px-5 py-2 font-bold text-pitch" href={`/matches/${fixture.id}`}>Match details</a>

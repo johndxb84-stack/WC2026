@@ -33,7 +33,7 @@ function parseScore(value: string) {
   return value === '' ? Number.NaN : Number(value);
 }
 
-export function PredictionCard({ fixture, order, initialPredictions, onPredictionSubmitted }: { fixture: Fixture; order: string[]; initialPredictions: PredictionRecord[]; onPredictionSubmitted?: (prediction: ExtendedPrediction & { fixtureId: string }) => void }) {
+export function PredictionCard({ fixture, order, initialPredictions, onPredictionSubmitted }: { fixture: Fixture; order: string[]; initialPredictions: ExtendedPrediction[]; onPredictionSubmitted?: (prediction: ExtendedPrediction & { fixtureId: string }) => void }) {
   const [homeScore, setHomeScore] = useState(emptyScore.home);
   const [awayScore, setAwayScore] = useState(emptyScore.away);
   const [possession, setPossession] = useState<OptionalPick>('NA');
@@ -177,7 +177,7 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
         <p>Extra time and penalties can be marked N/A when you believe they will not apply.</p>
       </div>
 
-      {reveal ? <div className="mt-4 space-y-2"><h4 className="font-bold">Revealed bets</h4>{initialPredictions.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore}</p>)}</div> : null}
+      {reveal ? <div className="mt-4 space-y-2"><h4 className="font-bold">Revealed bets</h4>{initialPredictions.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore} · possession {prediction.possession ?? 'N/A'} · scorer {prediction.firstGoalscorer ?? 'N/A'} · ET {prediction.extraTimeApplicable ? `${prediction.homeScoreExtraTime}-${prediction.awayScoreExtraTime}` : 'N/A'} · pens {prediction.penaltiesApplicable ? `${prediction.homePenaltyScore}-${prediction.awayPenaltyScore}` : 'N/A'}</p>)}</div> : null}
     </section>
   );
 }

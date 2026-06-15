@@ -35,6 +35,21 @@ type StoredResult = {
 
 type StoredScore = ReturnType<typeof scorePrediction> & { fixtureId: string; userName: string };
 type ResultsState = { results: StoredResult[]; scores: StoredScore[]; updatedAt: string | null };
+const manualResultOverrides: StoredResult[] = [
+  {
+    fixtureId: 'match-14',
+    homeScore90: 0,
+    awayScore90: 0,
+    homePossession: 51,
+    awayPossession: 49,
+    firstGoalscorerId: null,
+    homeScoreExtraTime: null,
+    awayScoreExtraTime: null,
+    homePenaltyScore: null,
+    awayPenaltyScore: null,
+    confirmedAt: '2026-06-15T17:45:00.000Z',
+  },
+];
 
 const resultSchema = z.object({
   fixtureId: z.string(),
@@ -111,19 +126,8 @@ async function currentPredictions(origin: string): Promise<StoredPrediction[]> {
   return payload.predictions ?? [];
 }
 
-export async function GET() {
-  const state = await readState();
-  return NextResponse.json({ ...state, leaderboard: leaderboard(state.scores), persistence: redisConfig() ? 'redis' : 'memory' });
-}
-
-export async function POST(request: Request) {
-  const url = new URL(request.url);
-  const body = await request.json();
-  const result = { ...resultSchema.parse(body.fixture ?? body), confirmedAt: new Date().toISOString() } satisfies StoredResult;
-  const predictions = (body.predictions as StoredPrediction[] | undefined) ?? await currentPredictions(url.origin);
-  const fixturePredictions = predictions.filter((prediction) => prediction.fixtureId === result.fixtureId);
-
-  const resultScores: StoredScore[] = fixturePredictions.map((prediction) => ({
+function scoreFixture(result: StoredResult, predictions: StoredPrediction[]): StoredScore[] {
+  return predictions.filter((prediction) => prediction.fixtureId === result.fixtureId).map((prediction) => ({
     fixtureId: result.fixtureId,
     userName: prediction.userName,
     ...scorePrediction({
@@ -137,6 +141,37 @@ export async function POST(request: Request) {
       awayPenaltyScore: prediction.awayPenaltyScore,
     }, { id: result.fixtureId, kickoff: new Date(result.confirmedAt), ...result }),
   }));
+}
+
+function applyManualResults(state: ResultsState, predictions: StoredPrediction[]): ResultsState {
+  const results = [...state.results];
+  const scores = [...state.scores];
+
+  for (const result of manualResultOverrides) {
+    const index = results.findIndex((candidate) => candidate.fixtureId === result.fixtureId);
+    if (index === -1) results.push(result);
+    else results[index] = result;
+
+    const replacementScores = scoreFixture(result, predictions);
+    scores.splice(0, scores.length, ...scores.filter((candidate) => candidate.fixtureId !== result.fixtureId), ...replacementScores);
+  }
+
+  return { results, scores, updatedAt: state.updatedAt ?? manualResultOverrides.at(-1)?.confirmedAt ?? null };
+}
+
+export async function GET(request: Request) {
+  const state = await readState();
+  const predictions = await currentPredictions(new URL(request.url).origin);
+  const effectiveState = applyManualResults(state, predictions);
+  return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisConfig() ? 'redis' : 'memory' });
+}
+
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const body = await request.json();
+  const result = { ...resultSchema.parse(body.fixture ?? body), confirmedAt: new Date().toISOString() } satisfies StoredResult;
+  const predictions = (body.predictions as StoredPrediction[] | undefined) ?? await currentPredictions(url.origin);
+  const resultScores = scoreFixture(result, predictions);
 
   const state = await readState();
   const results = [...state.results.filter((candidate) => candidate.fixtureId !== result.fixtureId), result];

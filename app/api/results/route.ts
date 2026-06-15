@@ -1,5 +1,148 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { settleFixtureOnce } from '@/lib/settlement';
-const schema = z.object({ fixture: z.any(), predictions: z.array(z.any()) });
-export async function POST(request: Request) { const body = schema.parse(await request.json()); return NextResponse.json(settleFixtureOnce(body.fixture, body.predictions)); }
+import { scorePrediction } from '@/lib/domain';
+
+const resultsStoreKey = 'wc2026:results:v1';
+
+type StoredPrediction = {
+  fixtureId: string;
+  userName: string;
+  homeScore: number;
+  awayScore: number;
+  possession?: 'NA' | 'HOME' | 'AWAY' | 'EQUAL';
+  firstGoalscorer?: string;
+  extraTimeApplicable?: boolean;
+  homeScoreExtraTime?: number;
+  awayScoreExtraTime?: number;
+  penaltiesApplicable?: boolean;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+};
+
+type StoredResult = {
+  fixtureId: string;
+  homeScore90: number;
+  awayScore90: number;
+  homePossession?: number;
+  awayPossession?: number;
+  firstGoalscorerId?: string | null;
+  homeScoreExtraTime?: number | null;
+  awayScoreExtraTime?: number | null;
+  homePenaltyScore?: number | null;
+  awayPenaltyScore?: number | null;
+  confirmedAt: string;
+};
+
+type StoredScore = ReturnType<typeof scorePrediction> & { fixtureId: string; userName: string };
+type ResultsState = { results: StoredResult[]; scores: StoredScore[]; updatedAt: string | null };
+
+const resultSchema = z.object({
+  fixtureId: z.string(),
+  homeScore90: z.number().int().min(0),
+  awayScore90: z.number().int().min(0),
+  homePossession: z.number().int().min(0).max(100).optional(),
+  awayPossession: z.number().int().min(0).max(100).optional(),
+  firstGoalscorerId: z.string().nullable().optional(),
+  homeScoreExtraTime: z.number().int().min(0).nullable().optional(),
+  awayScoreExtraTime: z.number().int().min(0).nullable().optional(),
+  homePenaltyScore: z.number().int().min(0).nullable().optional(),
+  awayPenaltyScore: z.number().int().min(0).nullable().optional(),
+});
+
+const memoryStore = globalThis as typeof globalThis & { wc2026ResultsState?: ResultsState };
+
+function redisConfig() {
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  return url && token ? { url, token } : null;
+}
+
+async function redisCommand<T>(command: unknown[]): Promise<T | null> {
+  const config = redisConfig();
+  if (!config) return null;
+
+  const response = await fetch(config.url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(command),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) throw new Error(`Results store failed with ${response.status}`);
+  const payload = await response.json() as { result: T | null };
+  return payload.result;
+}
+
+function emptyState(): ResultsState {
+  return { results: [], scores: [], updatedAt: null };
+}
+
+async function readState(): Promise<ResultsState> {
+  const remote = await redisCommand<string>(['GET', resultsStoreKey]);
+  if (remote) return JSON.parse(remote) as ResultsState;
+  return memoryStore.wc2026ResultsState ?? emptyState();
+}
+
+async function writeState(state: ResultsState) {
+  const remote = await redisCommand<string>(['SET', resultsStoreKey, JSON.stringify(state)]);
+  if (remote === null) memoryStore.wc2026ResultsState = state;
+}
+
+function leaderboard(scores: StoredScore[]) {
+  const rows = new Map<string, { userName: string; totalPoints: number; matchesSettled: number; exactScores: number; correctOutcomes: number; extraPoints: number }>();
+
+  for (const score of scores) {
+    const row = rows.get(score.userName) ?? { userName: score.userName, totalPoints: 0, matchesSettled: 0, exactScores: 0, correctOutcomes: 0, extraPoints: 0 };
+    row.totalPoints += score.totalPoints;
+    row.matchesSettled += 1;
+    row.exactScores += score.exactScorePoints > 0 ? 1 : 0;
+    row.correctOutcomes += score.outcomePoints > 0 ? 1 : 0;
+    row.extraPoints += score.possessionPoints + score.firstGoalscorerPoints + score.extraTimePoints + score.penaltyPoints;
+    rows.set(score.userName, row);
+  }
+
+  return [...rows.values()].sort((a, b) => b.totalPoints - a.totalPoints || a.userName.localeCompare(b.userName));
+}
+
+async function currentPredictions(origin: string): Promise<StoredPrediction[]> {
+  const response = await fetch(`${origin}/api/predictions`, { cache: 'no-store' });
+  if (!response.ok) return [];
+  const payload = await response.json() as { predictions?: StoredPrediction[] };
+  return payload.predictions ?? [];
+}
+
+export async function GET() {
+  const state = await readState();
+  return NextResponse.json({ ...state, leaderboard: leaderboard(state.scores), persistence: redisConfig() ? 'redis' : 'memory' });
+}
+
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const body = await request.json();
+  const result = { ...resultSchema.parse(body.fixture ?? body), confirmedAt: new Date().toISOString() } satisfies StoredResult;
+  const predictions = (body.predictions as StoredPrediction[] | undefined) ?? await currentPredictions(url.origin);
+  const fixturePredictions = predictions.filter((prediction) => prediction.fixtureId === result.fixtureId);
+
+  const resultScores: StoredScore[] = fixturePredictions.map((prediction) => ({
+    fixtureId: result.fixtureId,
+    userName: prediction.userName,
+    ...scorePrediction({
+      homeScore: prediction.homeScore,
+      awayScore: prediction.awayScore,
+      possession: prediction.possession === 'NA' ? undefined : prediction.possession,
+      firstGoalscorerId: prediction.firstGoalscorer === 'NA' ? undefined : prediction.firstGoalscorer,
+      homeScoreExtraTime: prediction.homeScoreExtraTime,
+      awayScoreExtraTime: prediction.awayScoreExtraTime,
+      homePenaltyScore: prediction.homePenaltyScore,
+      awayPenaltyScore: prediction.awayPenaltyScore,
+    }, { id: result.fixtureId, kickoff: new Date(result.confirmedAt), ...result }),
+  }));
+
+  const state = await readState();
+  const results = [...state.results.filter((candidate) => candidate.fixtureId !== result.fixtureId), result];
+  const scores = [...state.scores.filter((candidate) => candidate.fixtureId !== result.fixtureId), ...resultScores];
+  const nextState = { results, scores, updatedAt: new Date().toISOString() };
+  await writeState(nextState);
+
+  return NextResponse.json({ ok: true, ...nextState, leaderboard: leaderboard(scores), persistence: redisConfig() ? 'redis' : 'memory' });
+}

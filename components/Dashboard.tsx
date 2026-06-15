@@ -9,6 +9,7 @@ const storedPredictionsKey = 'wc2026.predictions.v1';
 
 type StoredPrediction = ExtendedPrediction & { fixtureId: string };
 type PredictionBackup = { predictions: StoredPrediction[]; resetAt: string | null };
+type LeaderboardRow = { userName: string; totalPoints: number; matchesSettled: number; exactScores: number; correctOutcomes: number; extraPoints: number };
 
 function withDefaultOptions(prediction: PredictionRecord & { fixtureId: string } & Partial<StoredPrediction>): StoredPrediction {
   return {
@@ -62,9 +63,21 @@ export function Dashboard() {
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
   const [syncStatus, setSyncStatus] = useState('Loading shared predictions…');
   const [resetAt, setResetAt] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
 
   useEffect(() => {
     let active = true;
+
+    async function loadLeaderboard() {
+      try {
+        const response = await fetch('/api/results', { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload = await response.json() as { leaderboard?: LeaderboardRow[] };
+        setLeaderboard(payload.leaderboard ?? []);
+      } catch {
+        // Keep existing points if result sync is unavailable.
+      }
+    }
 
     async function loadSharedPredictions() {
       const localBackup = readLocalBackup();
@@ -102,7 +115,11 @@ export function Dashboard() {
     }
 
     loadSharedPredictions();
-    const interval = window.setInterval(loadSharedPredictions, 5000);
+    loadLeaderboard();
+    const interval = window.setInterval(() => {
+      loadSharedPredictions();
+      loadLeaderboard();
+    }, 5000);
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -228,7 +245,7 @@ export function Dashboard() {
             <div className="glass rounded-2xl p-5" key={player.name}>
               <div className="text-3xl">#{index + 1}</div>
               <h2 className="text-2xl font-bold">{player.name}</h2>
-              <p className="text-gold">{player.totalPoints} pts</p>
+              <p className="text-gold">{leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints} pts</p>
             </div>
           ))}
         </div>

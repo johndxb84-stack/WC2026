@@ -68,3 +68,10 @@ In Vercel, add them under **Project Settings → Environment Variables** for the
 The simplest backup is from the deployed app: click **Download backup** on the dashboard. This downloads the current `/api/predictions` JSON, including submitted predictions, persistence mode, and reset metadata.
 
 You can also open `https://YOUR_DOMAIN/api/predictions` in a browser and save the JSON response manually. Keep the file before major deployments, resets, or provider/scoring migrations.
+
+
+## Automatic result sync and scoring
+
+Automatic scoring is additive and does not overwrite submitted bets. Predictions remain in `wc2026:predictions:v1`; final results and calculated scores are stored separately by `/api/results`. The `/api/sync` endpoint is wired for Vercel Cron and calls the configured football provider. With the current mock provider, no official results are settled automatically until a real provider implementation and API key are configured.
+
+For safety before enabling a real provider, download a backup of predictions from the dashboard. The leaderboard cards read settled totals from `/api/results`, so submitted bets stay intact while scoring can be recalculated from official results.

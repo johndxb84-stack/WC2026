@@ -97,6 +97,22 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true, predictions, persistence: redisConfig() ? 'redis' : 'memory' });
 }
 
+
+export async function PUT(request: Request) {
+  const body = await request.json();
+  const parsed = z.array(predictionSchema).parse(body.predictions ?? body);
+  const deduped: StoredPrediction[] = [];
+
+  for (const prediction of parsed) {
+    if (deduped.some((candidate) => candidate.fixtureId === prediction.fixtureId && candidate.userName === prediction.userName)) continue;
+    if (deduped.some((candidate) => candidate.fixtureId === prediction.fixtureId && candidate.homeScore === prediction.homeScore && candidate.awayScore === prediction.awayScore)) continue;
+    deduped.push(prediction);
+  }
+
+  await writePredictions(deduped);
+  return NextResponse.json({ ok: true, predictions: deduped, persistence: redisConfig() ? 'redis' : 'memory' });
+}
+
 export async function DELETE() {
   await clearPredictions();
   return NextResponse.json({ ok: true, predictions: [], persistence: redisConfig() ? 'redis' : 'memory' });

@@ -24,6 +24,23 @@ function revivePrediction(prediction: StoredPrediction): StoredPrediction {
   return withDefaultOptions(prediction);
 }
 
+function predictionKey(prediction: StoredPrediction) {
+  return `${prediction.fixtureId}:${prediction.userName}`;
+}
+
+function mergePredictions(primary: StoredPrediction[], backup: StoredPrediction[]) {
+  const merged = new Map<string, StoredPrediction>();
+
+  for (const prediction of [...backup, ...primary]) {
+    const existing = merged.get(predictionKey(prediction));
+    if (!existing || new Date(prediction.submittedAt).getTime() >= new Date(existing.submittedAt).getTime()) {
+      merged.set(predictionKey(prediction), prediction);
+    }
+  }
+
+  return [...merged.values()];
+}
+
 function formatOptional(value: unknown) {
   if (value === undefined || value === null || value === '' || value === 'NA') return 'N/A';
   if (value === true) return 'Yes';
@@ -44,28 +61,33 @@ export function Dashboard() {
     let active = true;
 
     async function loadSharedPredictions() {
+      const localBackup = readLocalBackup();
+
       try {
         const response = await fetch('/api/predictions', { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to load shared predictions');
         const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string };
         if (!active) return;
-        setPredictions(payload.predictions.map(revivePrediction));
+
+        const remotePredictions = payload.predictions.map(revivePrediction);
+        const mergedPredictions = mergePredictions(remotePredictions, localBackup);
+        setPredictions(mergedPredictions);
+
+        if (localBackup.length > 0 && mergedPredictions.length > remotePredictions.length) {
+          await saveAllPredictions(mergedPredictions);
+          setSyncStatus('Restored local backup to shared store');
+          return;
+        }
+
         setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Temporary server memory - configure Vercel KV for worldwide sync');
       } catch {
-        const stored = window.localStorage.getItem(storedPredictionsKey);
-        if (!stored) {
+        if (localBackup.length === 0) {
           setSyncStatus('Offline fallback only - shared store unavailable');
           return;
         }
 
-        try {
-          const parsed = JSON.parse(stored) as StoredPrediction[];
-          if (active) setPredictions(parsed.map(revivePrediction));
-          setSyncStatus('Offline fallback loaded from this browser');
-        } catch {
-          window.localStorage.removeItem(storedPredictionsKey);
-          setSyncStatus('Shared predictions unavailable');
-        }
+        if (active) setPredictions(localBackup);
+        setSyncStatus('Offline fallback loaded from this browser');
       }
     }
 
@@ -74,8 +96,40 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(storedPredictionsKey, JSON.stringify(predictions));
+    if (predictions.length > 0) window.localStorage.setItem(storedPredictionsKey, JSON.stringify(predictions));
   }, [predictions]);
+
+  function readLocalBackup() {
+    const stored = window.localStorage.getItem(storedPredictionsKey);
+    if (!stored) return [] as StoredPrediction[];
+
+    try {
+      return (JSON.parse(stored) as StoredPrediction[]).map(revivePrediction);
+    } catch {
+      return [] as StoredPrediction[];
+    }
+  }
+
+  async function saveAllPredictions(nextPredictions: StoredPrediction[]) {
+    const response = await fetch('/api/predictions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ predictions: nextPredictions }),
+    });
+    if (!response.ok) throw new Error('Could not restore predictions');
+  }
+
+  async function restoreLocalBackup() {
+    const localBackup = readLocalBackup();
+    if (localBackup.length === 0) {
+      setSyncStatus('No local backup found on this browser');
+      return;
+    }
+
+    setPredictions(localBackup);
+    await saveAllPredictions(localBackup);
+    setSyncStatus('Local backup restored to shared store');
+  }
 
   async function resetPredictions() {
     setPredictions([]);
@@ -122,6 +176,7 @@ export function Dashboard() {
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
+            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={restoreLocalBackup} type="button">Restore local backup</button>
             <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={resetPredictions} type="button">Reset bets</button>
           </div>
         </div>

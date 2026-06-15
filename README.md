@@ -38,3 +38,7 @@ For a real database, set `DATABASE_URL`, run `npx prisma migrate dev`, then seed
 The app persists submitted bets through `/api/predictions`. For real cross-device/cross-browser sync on Vercel, create a Vercel KV or Upstash Redis database and set `KV_REST_API_URL` plus `KV_REST_API_TOKEN` in Vercel environment variables. The API also accepts `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
 
 If these variables are not configured, the API falls back to temporary server memory, which is useful for local demos but is not durable across deployments or serverless cold starts.
+
+### Preventing lost bets during deployments
+
+Bets are durable across deployments only when Vercel KV / Upstash Redis environment variables are configured. Without KV, Vercel serverless memory can reset on redeploys. The browser keeps a local backup and the dashboard includes a **Restore local backup** button that can push that browser's saved bets back into the shared store if a deployment or missing KV configuration clears the temporary server store.

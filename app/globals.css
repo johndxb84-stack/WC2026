@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pitch: #06141f;
+  --color-flood: #80eaff;
+  --color-gold: #f8d45c;
+}
+
+body {
+  background: radial-gradient(circle at top, #123456, #06141f 55%, #02060a);
+  color: white;
+}
+
+.glass {
+  background: rgb(255 255 255 / 8%);
+  border: 1px solid rgb(255 255 255 / 16%);
+  box-shadow: 0 20px 80px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(16px);
+}

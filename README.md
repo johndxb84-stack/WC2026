@@ -32,3 +32,9 @@ For a real database, set `DATABASE_URL`, run `npx prisma migrate dev`, then seed
 ## Provider integration
 
 `lib/football-provider.ts` defines the provider interface. Add a concrete API-Football, Sportmonks, or Football-Data.org implementation behind `createFootballProvider`, keeping API keys in environment variables and preserving caching/rate-limit/retry behavior around provider calls.
+
+## Worldwide shared predictions
+
+The app persists submitted bets through `/api/predictions`. For real cross-device/cross-browser sync on Vercel, create a Vercel KV or Upstash Redis database and set `KV_REST_API_URL` plus `KV_REST_API_TOKEN` in Vercel environment variables. The API also accepts `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+
+If these variables are not configured, the API falls back to temporary server memory, which is useful for local demos but is not durable across deployments or serverless cold starts.

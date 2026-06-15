@@ -27,28 +27,66 @@ function revivePrediction(prediction: StoredPrediction): StoredPrediction {
 export function Dashboard() {
   const model = dashboardModel();
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
+  const [syncStatus, setSyncStatus] = useState('Loading shared predictions…');
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(storedPredictionsKey);
-    if (!stored) return;
+    let active = true;
 
-    try {
-      const parsed = JSON.parse(stored) as StoredPrediction[];
-      setPredictions(parsed.map(revivePrediction));
-    } catch {
-      window.localStorage.removeItem(storedPredictionsKey);
+    async function loadSharedPredictions() {
+      try {
+        const response = await fetch('/api/predictions', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Failed to load shared predictions');
+        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string };
+        if (!active) return;
+        setPredictions(payload.predictions.map(revivePrediction));
+        setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Temporary server memory - configure Vercel KV for worldwide sync');
+      } catch {
+        const stored = window.localStorage.getItem(storedPredictionsKey);
+        if (!stored) {
+          setSyncStatus('Offline fallback only - shared store unavailable');
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stored) as StoredPrediction[];
+          if (active) setPredictions(parsed.map(revivePrediction));
+          setSyncStatus('Offline fallback loaded from this browser');
+        } catch {
+          window.localStorage.removeItem(storedPredictionsKey);
+          setSyncStatus('Shared predictions unavailable');
+        }
+      }
     }
+
+    loadSharedPredictions();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(storedPredictionsKey, JSON.stringify(predictions));
   }, [predictions]);
 
-  function recordPrediction(prediction: StoredPrediction) {
-    setPredictions((existing) => {
+  async function recordPrediction(prediction: StoredPrediction) {
+    const applyPrediction = (existing: StoredPrediction[]) => {
       const withoutDuplicate = existing.filter((candidate) => !(candidate.fixtureId === prediction.fixtureId && candidate.userName === prediction.userName));
       return [...withoutDuplicate, prediction];
-    });
+    };
+
+    setPredictions(applyPrediction);
+
+    try {
+      const response = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prediction),
+      });
+      const payload = await response.json() as { predictions?: StoredPrediction[]; persistence?: string; reason?: string };
+      if (!response.ok) throw new Error(payload.reason ?? 'Prediction rejected');
+      if (payload.predictions) setPredictions(payload.predictions.map(revivePrediction));
+      setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Saved on server memory - configure Vercel KV for durable worldwide sync');
+    } catch (error) {
+      setSyncStatus(error instanceof Error ? error.message : 'Could not save shared prediction');
+    }
   }
 
   return (
@@ -58,6 +96,7 @@ export function Dashboard() {
           <p className="text-flood text-sm uppercase tracking-[.35em]">FIFA World Cup 2026</p>
           <h1 className="mt-3 text-4xl font-black md:text-7xl">Friends Prediction Arena</h1>
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
+          <p className="mt-3 rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {model.players.map((player, index) => (

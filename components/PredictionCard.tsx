@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { currentEligiblePlayer, shouldReveal, validatePrediction, type PredictionRecord } from '@/lib/domain';
 
 type Fixture = {
@@ -15,7 +15,8 @@ type Fixture = {
 
 type OptionalPick = 'NA' | 'HOME' | 'AWAY' | 'EQUAL';
 
-type ExtendedPrediction = PredictionRecord & {
+export type ExtendedPrediction = PredictionRecord & {
+  fixtureId?: string;
   possession: OptionalPick;
   firstGoalscorer: string;
   extraTimeApplicable: boolean;
@@ -32,7 +33,7 @@ function parseScore(value: string) {
   return value === '' ? Number.NaN : Number(value);
 }
 
-export function PredictionCard({ fixture, order, initialPredictions }: { fixture: Fixture; order: string[]; initialPredictions: PredictionRecord[] }) {
+export function PredictionCard({ fixture, order, initialPredictions, onPredictionSubmitted }: { fixture: Fixture; order: string[]; initialPredictions: PredictionRecord[]; onPredictionSubmitted?: (prediction: ExtendedPrediction & { fixtureId: string }) => void }) {
   const [predictions, setPredictions] = useState<ExtendedPrediction[]>(
     initialPredictions.map((prediction) => ({
       ...prediction,
@@ -53,6 +54,16 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
   const [homePenaltyScore, setHomePenaltyScore] = useState('0');
   const [awayPenaltyScore, setAwayPenaltyScore] = useState('0');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setPredictions(initialPredictions.map((prediction) => ({
+      ...prediction,
+      possession: 'NA',
+      firstGoalscorer: 'NA',
+      extraTimeApplicable: false,
+      penaltiesApplicable: false,
+    })));
+  }, [initialPredictions]);
 
   const currentPlayer = currentEligiblePlayer(order, predictions);
   const reveal = shouldReveal(order, predictions, { id: fixture.id, kickoff: fixture.kickoff });
@@ -81,23 +92,24 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
       return;
     }
 
-    setPredictions((existing) => [
-      ...existing,
-      {
-        userName: currentPlayer,
-        homeScore: parsedHomeScore,
-        awayScore: parsedAwayScore,
-        submittedAt,
-        possession,
-        firstGoalscorer,
-        extraTimeApplicable,
-        homeScoreExtraTime: extraTimeApplicable ? parseScore(homeScoreExtraTime) : undefined,
-        awayScoreExtraTime: extraTimeApplicable ? parseScore(awayScoreExtraTime) : undefined,
-        penaltiesApplicable,
-        homePenaltyScore: penaltiesApplicable ? parseScore(homePenaltyScore) : undefined,
-        awayPenaltyScore: penaltiesApplicable ? parseScore(awayPenaltyScore) : undefined,
-      },
-    ]);
+    const nextPrediction: ExtendedPrediction & { fixtureId: string } = {
+      fixtureId: fixture.id,
+      userName: currentPlayer,
+      homeScore: parsedHomeScore,
+      awayScore: parsedAwayScore,
+      submittedAt,
+      possession,
+      firstGoalscorer,
+      extraTimeApplicable,
+      homeScoreExtraTime: extraTimeApplicable ? parseScore(homeScoreExtraTime) : undefined,
+      awayScoreExtraTime: extraTimeApplicable ? parseScore(awayScoreExtraTime) : undefined,
+      penaltiesApplicable,
+      homePenaltyScore: penaltiesApplicable ? parseScore(homePenaltyScore) : undefined,
+      awayPenaltyScore: penaltiesApplicable ? parseScore(awayPenaltyScore) : undefined,
+    };
+
+    setPredictions((existing) => [...existing, nextPrediction]);
+    onPredictionSubmitted?.(nextPrediction);
     setMessage(`${currentPlayer} submitted ${parsedHomeScore}-${parsedAwayScore}. Next player can now bet.`);
     setHomeScore('0');
     setAwayScore('0');

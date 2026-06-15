@@ -26,7 +26,11 @@ type ExtendedPrediction = PredictionRecord & {
   awayPenaltyScore?: number;
 };
 
-const emptyScore = { home: 0, away: 0 };
+const emptyScore = { home: '0', away: '0' };
+
+function parseScore(value: string) {
+  return value === '' ? Number.NaN : Number(value);
+}
 
 export function PredictionCard({ fixture, order, initialPredictions }: { fixture: Fixture; order: string[]; initialPredictions: PredictionRecord[] }) {
   const [predictions, setPredictions] = useState<ExtendedPrediction[]>(
@@ -43,15 +47,19 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
   const [possession, setPossession] = useState<OptionalPick>('NA');
   const [firstGoalscorer, setFirstGoalscorer] = useState('NA');
   const [extraTimeApplicable, setExtraTimeApplicable] = useState(false);
-  const [homeScoreExtraTime, setHomeScoreExtraTime] = useState(0);
-  const [awayScoreExtraTime, setAwayScoreExtraTime] = useState(0);
+  const [homeScoreExtraTime, setHomeScoreExtraTime] = useState('0');
+  const [awayScoreExtraTime, setAwayScoreExtraTime] = useState('0');
   const [penaltiesApplicable, setPenaltiesApplicable] = useState(false);
-  const [homePenaltyScore, setHomePenaltyScore] = useState(0);
-  const [awayPenaltyScore, setAwayPenaltyScore] = useState(0);
+  const [homePenaltyScore, setHomePenaltyScore] = useState('0');
+  const [awayPenaltyScore, setAwayPenaltyScore] = useState('0');
   const [message, setMessage] = useState('');
 
   const currentPlayer = currentEligiblePlayer(order, predictions);
   const reveal = shouldReveal(order, predictions, { id: fixture.id, kickoff: fixture.kickoff });
+  const parsedHomeScore = parseScore(homeScore);
+  const parsedAwayScore = parseScore(awayScore);
+  const scoreKey = `${parsedHomeScore}-${parsedAwayScore}`;
+  const scoreIsComplete = Number.isInteger(parsedHomeScore) && Number.isInteger(parsedAwayScore) && parsedHomeScore >= 0 && parsedAwayScore >= 0;
   const takenScores = useMemo(() => new Set(predictions.filter((prediction) => !prediction.forfeited).map((prediction) => `${prediction.homeScore}-${prediction.awayScore}`)), [predictions]);
 
   function submitPrediction() {
@@ -65,7 +73,7 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
       { id: fixture.id, kickoff: fixture.kickoff },
       order,
       predictions,
-      { userName: currentPlayer, homeScore, awayScore, submittedAt },
+      { userName: currentPlayer, homeScore: parsedHomeScore, awayScore: parsedAwayScore, submittedAt },
     );
 
     if (!validation.ok) {
@@ -77,22 +85,22 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
       ...existing,
       {
         userName: currentPlayer,
-        homeScore,
-        awayScore,
+        homeScore: parsedHomeScore,
+        awayScore: parsedAwayScore,
         submittedAt,
         possession,
         firstGoalscorer,
         extraTimeApplicable,
-        homeScoreExtraTime: extraTimeApplicable ? homeScoreExtraTime : undefined,
-        awayScoreExtraTime: extraTimeApplicable ? awayScoreExtraTime : undefined,
+        homeScoreExtraTime: extraTimeApplicable ? parseScore(homeScoreExtraTime) : undefined,
+        awayScoreExtraTime: extraTimeApplicable ? parseScore(awayScoreExtraTime) : undefined,
         penaltiesApplicable,
-        homePenaltyScore: penaltiesApplicable ? homePenaltyScore : undefined,
-        awayPenaltyScore: penaltiesApplicable ? awayPenaltyScore : undefined,
+        homePenaltyScore: penaltiesApplicable ? parseScore(homePenaltyScore) : undefined,
+        awayPenaltyScore: penaltiesApplicable ? parseScore(awayPenaltyScore) : undefined,
       },
     ]);
-    setMessage(`${currentPlayer} submitted ${homeScore}-${awayScore}. Next player can now bet.`);
-    setHomeScore(0);
-    setAwayScore(0);
+    setMessage(`${currentPlayer} submitted ${parsedHomeScore}-${parsedAwayScore}. Next player can now bet.`);
+    setHomeScore('0');
+    setAwayScore('0');
     setPossession('NA');
     setFirstGoalscorer('NA');
     setExtraTimeApplicable(false);
@@ -112,15 +120,15 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <label className="space-y-1">
           <span className="text-sm text-white/70">{fixture.homeTeam} 90-min goals</span>
-          <input className="w-full rounded-xl bg-white/10 p-3" min={0} type="number" value={homeScore} onChange={(event) => setHomeScore(Number(event.target.value))} />
+          <input className="w-full rounded-xl bg-white/10 p-3" inputMode="numeric" min={0} type="number" value={homeScore} onChange={(event) => setHomeScore(event.target.value)} onFocus={(event) => event.currentTarget.select()} />
         </label>
         <label className="space-y-1">
           <span className="text-sm text-white/70">{fixture.awayTeam} 90-min goals</span>
-          <input className="w-full rounded-xl bg-white/10 p-3" min={0} type="number" value={awayScore} onChange={(event) => setAwayScore(Number(event.target.value))} />
+          <input className="w-full rounded-xl bg-white/10 p-3" inputMode="numeric" min={0} type="number" value={awayScore} onChange={(event) => setAwayScore(event.target.value)} onFocus={(event) => event.currentTarget.select()} />
         </label>
       </div>
 
-      {takenScores.has(`${homeScore}-${awayScore}`) ? <p className="mt-2 text-sm text-gold">This score has already been selected. Please choose another score.</p> : null}
+      {scoreIsComplete && takenScores.has(scoreKey) ? <p className="mt-2 text-sm text-gold">This score has already been selected. Please choose another score.</p> : null}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <label className="space-y-1">
@@ -155,18 +163,18 @@ export function PredictionCard({ fixture, order, initialPredictions }: { fixture
             <input type="checkbox" checked={extraTimeApplicable} onChange={(event) => setExtraTimeApplicable(event.target.checked)} />
             Extra time applicable? Otherwise N/A.
           </label>
-          {extraTimeApplicable ? <div className="mt-3 grid grid-cols-2 gap-2"><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={homeScoreExtraTime} onChange={(event) => setHomeScoreExtraTime(Number(event.target.value))} /><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={awayScoreExtraTime} onChange={(event) => setAwayScoreExtraTime(Number(event.target.value))} /></div> : null}
+          {extraTimeApplicable ? <div className="mt-3 grid grid-cols-2 gap-2"><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={homeScoreExtraTime} onChange={(event) => setHomeScoreExtraTime(event.target.value)} onFocus={(event) => event.currentTarget.select()} /><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={awayScoreExtraTime} onChange={(event) => setAwayScoreExtraTime(event.target.value)} onFocus={(event) => event.currentTarget.select()} /></div> : null}
         </div>
         <div className="rounded-2xl bg-white/5 p-3">
           <label className="flex items-center gap-2 text-sm text-white/80">
             <input type="checkbox" checked={penaltiesApplicable} onChange={(event) => setPenaltiesApplicable(event.target.checked)} />
             Penalties applicable? Otherwise N/A.
           </label>
-          {penaltiesApplicable ? <div className="mt-3 grid grid-cols-2 gap-2"><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={homePenaltyScore} onChange={(event) => setHomePenaltyScore(Number(event.target.value))} /><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={awayPenaltyScore} onChange={(event) => setAwayPenaltyScore(Number(event.target.value))} /></div> : null}
+          {penaltiesApplicable ? <div className="mt-3 grid grid-cols-2 gap-2"><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={homePenaltyScore} onChange={(event) => setHomePenaltyScore(event.target.value)} onFocus={(event) => event.currentTarget.select()} /><input className="rounded-xl bg-white/10 p-3" min={0} type="number" value={awayPenaltyScore} onChange={(event) => setAwayPenaltyScore(event.target.value)} onFocus={(event) => event.currentTarget.select()} /></div> : null}
         </div>
       </div>
 
-      <button className="mt-4 rounded-full bg-gold px-5 py-3 font-black text-pitch disabled:opacity-50" disabled={!currentPlayer || takenScores.has(`${homeScore}-${awayScore}`)} onClick={submitPrediction} type="button">
+      <button className="mt-4 rounded-full bg-gold px-5 py-3 font-black text-pitch disabled:opacity-50" disabled={!currentPlayer || !scoreIsComplete || takenScores.has(scoreKey)} onClick={submitPrediction} type="button">
         Bet for {currentPlayer ?? 'all players'}
       </button>
       {message ? <p className="mt-3 text-sm text-white/80">{message}</p> : null}

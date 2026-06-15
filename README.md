@@ -52,3 +52,12 @@ If bets disappear after a Vercel deployment, the project is not actually writing
 3. Redeploy after the variables are added; old deployments do not automatically receive newly added environment variables.
 4. Open the app and check the sync pill at the top of the dashboard. It must say **Synced globally**. If it says temporary server memory, the deployment still cannot see the KV variables.
 5. If a temporary-memory deployment lost bets but the browser that submitted them still has a backup, click **Restore local backup** once after KV is configured.
+
+### What values go in the KV variables?
+
+Do not invent these values. Copy them from Vercel Storage/KV (or Upstash Redis):
+
+- `KV_REST_API_URL`: the REST API URL shown by Vercel KV/Upstash, usually an `https://...upstash.io` URL.
+- `KV_REST_API_TOKEN`: the REST API token/secret shown next to the REST URL.
+
+In Vercel, add them under **Project Settings → Environment Variables** for the same environment you deploy to. If you are testing a branch preview URL, add them to **Preview** too. After saving them, redeploy the site and verify the dashboard says **Synced globally**.

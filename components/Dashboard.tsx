@@ -66,6 +66,19 @@ export function Dashboard() {
     window.localStorage.setItem(storedPredictionsKey, JSON.stringify(predictions));
   }, [predictions]);
 
+  async function resetPredictions() {
+    setPredictions([]);
+    window.localStorage.removeItem(storedPredictionsKey);
+
+    try {
+      const response = await fetch('/api/predictions', { method: 'DELETE' });
+      if (!response.ok) throw new Error('Could not reset shared predictions');
+      setSyncStatus('Bets reset - Nicolas is back on turn');
+    } catch {
+      setSyncStatus('Local bets reset, but shared reset failed');
+    }
+  }
+
   async function recordPrediction(prediction: StoredPrediction) {
     const applyPrediction = (existing: StoredPrediction[]) => {
       const withoutDuplicate = existing.filter((candidate) => !(candidate.fixtureId === prediction.fixtureId && candidate.userName === prediction.userName));
@@ -96,7 +109,10 @@ export function Dashboard() {
           <p className="text-flood text-sm uppercase tracking-[.35em]">FIFA World Cup 2026</p>
           <h1 className="mt-3 text-4xl font-black md:text-7xl">Friends Prediction Arena</h1>
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
-          <p className="mt-3 rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
+            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={resetPredictions} type="button">Reset bets</button>
+          </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {model.players.map((player, index) => (

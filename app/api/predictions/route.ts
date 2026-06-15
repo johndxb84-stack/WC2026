@@ -74,6 +74,11 @@ async function writePredictions(predictions: StoredPrediction[]) {
   if (remote === null) memoryStore.wc2026Predictions = predictions;
 }
 
+async function clearPredictions() {
+  const remote = await redisCommand<number>(['DEL', storeKey]);
+  if (remote === null) memoryStore.wc2026Predictions = [];
+}
+
 export async function GET() {
   return NextResponse.json({ predictions: await readPredictions(), persistence: redisConfig() ? 'redis' : 'memory' });
 }
@@ -90,4 +95,9 @@ export async function POST(request: Request) {
   const predictions = [...withoutDuplicateUser, prediction];
   await writePredictions(predictions);
   return NextResponse.json({ ok: true, predictions, persistence: redisConfig() ? 'redis' : 'memory' });
+}
+
+export async function DELETE() {
+  await clearPredictions();
+  return NextResponse.json({ ok: true, predictions: [], persistence: redisConfig() ? 'redis' : 'memory' });
 }

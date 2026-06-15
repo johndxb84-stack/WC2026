@@ -1,4 +1,4 @@
-import { dailyOrder, referenceRotationDate } from './domain';
+import { dailyOrder, referenceRotationDate, type PredictionRecord } from './domain';
 
 export const players = [
   { id: 'nicolas', name: 'Nicolas', avatarUrl: '/avatars/nicolas.svg', totalPoints: 0 },
@@ -92,7 +92,7 @@ export const fixtures = [
   },
 ];
 
-export const mockPredictions = [];
+export const mockPredictions: Array<PredictionRecord & { fixtureId: string }> = [];
 
 export function dashboardModel(now = new Date('2026-06-15T10:00:00+04:00')) {
   const order = dailyOrder(now);

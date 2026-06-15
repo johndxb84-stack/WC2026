@@ -9,14 +9,18 @@ const storedPredictionsKey = 'wc2026.predictions.v1';
 
 type StoredPrediction = ExtendedPrediction & { fixtureId: string };
 
-function withDefaultOptions(prediction: PredictionRecord & { fixtureId: string }): StoredPrediction {
+function withDefaultOptions(prediction: PredictionRecord & { fixtureId: string } & Partial<StoredPrediction>): StoredPrediction {
   return {
     ...prediction,
     submittedAt: new Date(prediction.submittedAt),
-    possession: 'NA',
-    firstGoalscorer: 'NA',
-    extraTimeApplicable: false,
-    penaltiesApplicable: false,
+    possession: prediction.possession ?? 'NA',
+    firstGoalscorer: prediction.firstGoalscorer ?? 'NA',
+    extraTimeApplicable: prediction.extraTimeApplicable ?? false,
+    homeScoreExtraTime: prediction.homeScoreExtraTime,
+    awayScoreExtraTime: prediction.awayScoreExtraTime,
+    penaltiesApplicable: prediction.penaltiesApplicable ?? false,
+    homePenaltyScore: prediction.homePenaltyScore,
+    awayPenaltyScore: prediction.awayPenaltyScore,
   };
 }
 

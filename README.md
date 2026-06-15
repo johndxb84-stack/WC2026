@@ -61,3 +61,10 @@ Do not invent these values. Copy them from Vercel Storage/KV (or Upstash Redis):
 - `KV_REST_API_TOKEN`: the REST API token/secret shown next to the REST URL.
 
 In Vercel, add them under **Project Settings → Environment Variables** for the same environment you deploy to. If you are testing a branch preview URL, add them to **Preview** too. After saving them, redeploy the site and verify the dashboard says **Synced globally**.
+
+
+### Backing up KV predictions
+
+The simplest backup is from the deployed app: click **Download backup** on the dashboard. This downloads the current `/api/predictions` JSON, including submitted predictions, persistence mode, and reset metadata.
+
+You can also open `https://YOUR_DOMAIN/api/predictions` in a browser and save the JSON response manually. Keep the file before major deployments, resets, or provider/scoring migrations.

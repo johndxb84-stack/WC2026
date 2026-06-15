@@ -149,6 +149,26 @@ export function Dashboard() {
     setSyncStatus('Local backup restored to shared store');
   }
 
+  async function downloadBackup() {
+    try {
+      const response = await fetch('/api/predictions', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Could not download backup');
+      const backup = await response.json();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `wc2026-predictions-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSyncStatus('Backup downloaded');
+    } catch {
+      setSyncStatus('Could not download backup');
+    }
+  }
+
   async function resetPredictions() {
     setPredictions([]);
     window.localStorage.removeItem(storedPredictionsKey);
@@ -198,6 +218,7 @@ export function Dashboard() {
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
+            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={downloadBackup} type="button">Download backup</button>
             <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={restoreLocalBackup} type="button">Restore local backup</button>
             <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={resetPredictions} type="button">Reset bets</button>
           </div>

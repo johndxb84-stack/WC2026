@@ -30,7 +30,7 @@ const teamSquads: Record<string, string[]> = {
   ],
 
   France: [
-    'Mike Maignan', 'Brice Samba', 'Alphonse Areola', 'Jules Koundé', 'William Saliba', 'Ibrahima Konaté', 'Dayot Upamecano', 'Theo Hernández', 'Ferland Mendy', 'Aurélien Tchouaméni', 'Adrien Rabiot', 'Eduardo Camavinga', 'Warren Zaïre-Emery', 'Antoine Griezmann', 'Kylian Mbappé', 'Ousmane Dembélé', 'Kingsley Coman', 'Marcus Thuram', 'Olivier Giroud', 'Randal Kolo Muani', 'Bradley Barcola', 'Christopher Nkunku', 'Moussa Diaby', 'Jonathan Clauss', 'Youssouf Fofana', 'Jean-Clair Todibo',
+    'Mike Maignan', 'Brice Samba', 'Alphonse Areola', 'Jules Koundé', 'William Saliba', 'Ibrahima Konaté', 'Dayot Upamecano', 'Theo Hernández', 'Ferland Mendy', 'Aurélien Tchouaméni', 'Adrien Rabiot', 'Eduardo Camavinga', 'Warren Zaïre-Emery', 'Antoine Griezmann', 'Kylian Mbappé', 'Michael Olise', 'Ousmane Dembélé', 'Kingsley Coman', 'Marcus Thuram', 'Olivier Giroud', 'Randal Kolo Muani', 'Bradley Barcola', 'Christopher Nkunku', 'Moussa Diaby', 'Jonathan Clauss', 'Youssouf Fofana', 'Jean-Clair Todibo',
   ],
   Senegal: [
     'Édouard Mendy', 'Seny Dieng', 'Mory Diaw', 'Kalidou Koulibaly', 'Abdou Diallo', 'Ismail Jakobs', 'Formose Mendy', 'Moussa Niakhaté', 'Pape Gueye', 'Pape Matar Sarr', 'Idrissa Gueye', 'Nampalys Mendy', 'Cheikhou Kouyaté', 'Pathé Ciss', 'Sadio Mané', 'Ismaïla Sarr', 'Iliman Ndiaye', 'Nicolas Jackson', 'Boulaye Dia', 'Habib Diallo', 'Krépin Diatta', 'Famara Diédhiou', 'Bamba Dieng', 'Lamine Camara', 'Kouadio Koné', 'Mikayil Faye',

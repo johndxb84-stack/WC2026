@@ -21,6 +21,7 @@ describe('prediction rules', () => {
 describe('scoring and settlement', () => {
  it('exact score awards three cumulative main points', () => expect(scorePrediction({homeScore:2,awayScore:1},{...fixture,homeScore90:2,awayScore90:1}).totalPoints).toBe(3));
  it('correct outcome but incorrect score awards one point', () => expect(scorePrediction({homeScore:1,awayScore:0},{...fixture,homeScore90:2,awayScore90:1}).totalPoints).toBe(1));
+ it('correct draw but incorrect score awards one point', () => expect(scorePrediction({homeScore:1,awayScore:1},{...fixture,homeScore90:2,awayScore90:2}).totalPoints).toBe(1));
  it('incorrect outcome awards zero main points', () => expect(scorePrediction({homeScore:0,awayScore:1},{...fixture,homeScore90:2,awayScore90:1}).totalPoints).toBe(0));
  it('correct first goalscorer awards one point', () => expect(scorePrediction({homeScore:0,awayScore:0,firstGoalscorerId:'p1'},{...fixture,homeScore90:0,awayScore90:0,firstGoalscorerId:'p1'}).firstGoalscorerPoints).toBe(1));
  it('correct possession prediction awards one point', () => expect(scorePrediction({homeScore:0,awayScore:0,possession:'HOME'},{...fixture,homeScore90:0,awayScore90:0,homePossession:51,awayPossession:49}).possessionPoints).toBe(1));

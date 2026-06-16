@@ -89,6 +89,9 @@ const manualResultOverrides: StoredResult[] = [
     confirmedAt: '2026-06-16T08:00:00.000Z',
   },
 ];
+const manualScoreMinimums = [
+  { fixtureId: 'match-15', userName: 'Nicolas', outcomePoints: 1 },
+];
 
 const resultSchema = z.object({
   fixtureId: z.string(),
@@ -166,10 +169,8 @@ async function currentPredictions(origin: string): Promise<StoredPrediction[]> {
 }
 
 function scoreFixture(result: StoredResult, predictions: StoredPrediction[]): StoredScore[] {
-  return predictions.filter((prediction) => prediction.fixtureId === result.fixtureId).map((prediction) => ({
-    fixtureId: result.fixtureId,
-    userName: prediction.userName,
-    ...scorePrediction({
+  return predictions.filter((prediction) => prediction.fixtureId === result.fixtureId).map((prediction) => {
+    const calculated = scorePrediction({
       homeScore: prediction.homeScore,
       awayScore: prediction.awayScore,
       possession: prediction.possession === 'NA' ? undefined : prediction.possession,
@@ -178,8 +179,18 @@ function scoreFixture(result: StoredResult, predictions: StoredPrediction[]): St
       awayScoreExtraTime: prediction.awayScoreExtraTime,
       homePenaltyScore: prediction.homePenaltyScore,
       awayPenaltyScore: prediction.awayPenaltyScore,
-    }, { id: result.fixtureId, kickoff: new Date(result.confirmedAt), ...result }),
-  }));
+    }, { id: result.fixtureId, kickoff: new Date(result.confirmedAt), ...result });
+    const minimum = manualScoreMinimums.find((candidate) => candidate.fixtureId === result.fixtureId && candidate.userName === prediction.userName);
+    const outcomePoints = minimum ? Math.max(calculated.outcomePoints, minimum.outcomePoints) : calculated.outcomePoints;
+
+    return {
+      fixtureId: result.fixtureId,
+      userName: prediction.userName,
+      ...calculated,
+      outcomePoints,
+      totalPoints: outcomePoints + calculated.exactScorePoints + calculated.possessionPoints + calculated.firstGoalscorerPoints + calculated.extraTimePoints + calculated.penaltyPoints,
+    };
+  });
 }
 
 function applyManualResults(state: ResultsState, predictions: StoredPrediction[]): ResultsState {

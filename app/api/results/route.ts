@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { scorePrediction } from '@/lib/domain';
 
 const resultsStoreKey = 'wc2026:results:v1';
+export const dynamic = 'force-dynamic';
 
 type StoredPrediction = {
   fixtureId: string;
@@ -167,8 +168,8 @@ async function currentPredictions(origin: string): Promise<StoredPrediction[]> {
 function scoreFixture(result: StoredResult, predictions: StoredPrediction[]): StoredScore[] {
   return predictions.filter((prediction) => prediction.fixtureId === result.fixtureId).map((prediction) => {
     const calculated = scorePrediction({
-      homeScore: prediction.homeScore,
-      awayScore: prediction.awayScore,
+      homeScore: Number(prediction.homeScore),
+      awayScore: Number(prediction.awayScore),
       possession: prediction.possession === 'NA' ? undefined : prediction.possession,
       firstGoalscorerId: prediction.firstGoalscorer === 'NA' ? undefined : prediction.firstGoalscorer,
       homeScoreExtraTime: prediction.homeScoreExtraTime,
@@ -205,6 +206,7 @@ export async function GET(request: Request) {
   const state = await readState();
   const predictions = await currentPredictions(new URL(request.url).origin);
   const effectiveState = applyManualResults(state, predictions);
+  if (JSON.stringify(effectiveState) !== JSON.stringify(state)) await writeState(effectiveState);
   return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisConfig() ? 'redis' : 'memory' });
 }
 

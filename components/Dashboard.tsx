@@ -10,6 +10,8 @@ const storedPredictionsKey = 'wc2026.predictions.v1';
 type StoredPrediction = ExtendedPrediction & { fixtureId: string };
 type PredictionBackup = { predictions: StoredPrediction[]; resetAt: string | null };
 type LeaderboardRow = { userName: string; totalPoints: number; matchesSettled: number; exactScores: number; correctOutcomes: number; extraPoints: number };
+type ResultRow = { fixtureId: string; homeScore90: number; awayScore90: number; homePossession?: number; awayPossession?: number; firstGoalscorerId?: string | null };
+type ScoreRow = { fixtureId: string; userName: string; outcomePoints: number; exactScorePoints: number; possessionPoints: number; firstGoalscorerPoints: number; extraTimePoints: number; penaltyPoints: number; totalPoints: number };
 
 function withDefaultOptions(prediction: PredictionRecord & { fixtureId: string } & Partial<StoredPrediction>): StoredPrediction {
   return {
@@ -58,12 +60,25 @@ function formatScore(home?: number, away?: number) {
   return typeof home === 'number' && typeof away === 'number' ? `${home}-${away}` : 'N/A';
 }
 
+function possessionWinner(result: ResultRow | undefined, homeTeam: string, awayTeam: string) {
+  if (!result || result.homePossession == null || result.awayPossession == null) return 'N/A';
+  if (result.homePossession === result.awayPossession) return 'Equal';
+  return result.homePossession > result.awayPossession ? homeTeam : awayTeam;
+}
+
+function scoringReason(score?: ScoreRow) {
+  if (!score) return 'Points pending until result is settled.';
+  return `Outcome ${score.outcomePoints}/1, exact score ${score.exactScorePoints}/2, possession ${score.possessionPoints}/1, first scorer ${score.firstGoalscorerPoints}/1 = ${score.totalPoints} pts`;
+}
+
 export function Dashboard() {
   const model = dashboardModel();
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
   const [syncStatus, setSyncStatus] = useState('Loading shared predictions…');
   const [resetAt, setResetAt] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [scores, setScores] = useState<ScoreRow[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -72,8 +87,10 @@ export function Dashboard() {
       try {
         const response = await fetch('/api/results', { cache: 'no-store' });
         if (!response.ok) return;
-        const payload = await response.json() as { leaderboard?: LeaderboardRow[] };
+        const payload = await response.json() as { leaderboard?: LeaderboardRow[]; results?: ResultRow[]; scores?: ScoreRow[] };
         setLeaderboard(payload.leaderboard ?? []);
+        setResults(payload.results ?? []);
+        setScores(payload.scores ?? []);
       } catch {
         // Keep existing points if result sync is unavailable.
       }
@@ -257,6 +274,8 @@ export function Dashboard() {
             const nextPlayer = currentIndex >= 0 ? model.order[currentIndex + 1] : undefined;
             const reveal = shouldReveal(model.order, fixturePredictions, { id: fixture.id, kickoff: fixture.kickoff });
             const predictionRecords = fixturePredictions;
+            const result = results.find((candidate) => candidate.fixtureId === fixture.id);
+            const fixtureScores = scores.filter((score) => score.fixtureId === fixture.id);
 
             return (
               <article className="glass rounded-3xl p-6" key={fixture.id}>
@@ -279,11 +298,22 @@ export function Dashboard() {
                     })}
                   </div>
                 </div>
+                {result ? (
+                  <div className="mt-4 rounded-2xl border border-gold/30 bg-gold/10 p-4 text-sm">
+                    <h3 className="font-bold text-gold">Official result used for scoring</h3>
+                    <div className="mt-2 grid gap-2 md:grid-cols-4">
+                      <p><b>90-min score:</b> {fixture.homeTeam} {result.homeScore90}-{result.awayScore90} {fixture.awayTeam}</p>
+                      <p><b>Possession:</b> {possessionWinner(result, fixture.homeTeam, fixture.awayTeam)} {result.homePossession != null && result.awayPossession != null ? `(${result.homePossession}%-${result.awayPossession}%)` : ''}</p>
+                      <p><b>First scorer:</b> {formatOptional(result.firstGoalscorerId)}</p>
+                      <p><b>Scoring:</b> 1 outcome, 2 exact score, 1 possession, 1 first scorer</p>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4">
-                  <h3 className="font-bold">Predictions</h3>
+                  <h3 className="font-bold">Predictions and scoring breakdown</h3>
                   {reveal ? (
                     <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
-                      <table className="w-full min-w-[760px] text-left text-sm">
+                      <table className="w-full min-w-[980px] text-left text-sm">
                         <thead className="bg-white/10 text-white">
                           <tr>
                             <th className="p-3">Player</th>
@@ -292,19 +322,26 @@ export function Dashboard() {
                             <th className="p-3">First scorer</th>
                             <th className="p-3">Extra time</th>
                             <th className="p-3">Penalties</th>
+                            <th className="p-3">Points</th>
+                            <th className="p-3">Reasoning</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {predictionRecords.map((prediction) => (
-                            <tr className="border-t border-white/10 text-white/80" key={prediction.userName}>
-                              <td className="p-3 font-bold text-white">{prediction.userName}</td>
-                              <td className="p-3">{prediction.homeScore}-{prediction.awayScore}</td>
-                              <td className="p-3">{formatOptional(prediction.possession)}</td>
-                              <td className="p-3">{formatOptional(prediction.firstGoalscorer)}</td>
-                              <td className="p-3">{prediction.extraTimeApplicable ? formatScore(prediction.homeScoreExtraTime, prediction.awayScoreExtraTime) : 'N/A'}</td>
-                              <td className="p-3">{prediction.penaltiesApplicable ? formatScore(prediction.homePenaltyScore, prediction.awayPenaltyScore) : 'N/A'}</td>
-                            </tr>
-                          ))}
+                          {predictionRecords.map((prediction) => {
+                            const score = fixtureScores.find((candidate) => candidate.userName === prediction.userName);
+                            return (
+                              <tr className="border-t border-white/10 text-white/80" key={prediction.userName}>
+                                <td className="p-3 font-bold text-white">{prediction.userName}</td>
+                                <td className="p-3">{prediction.homeScore}-{prediction.awayScore}</td>
+                                <td className="p-3">{formatOptional(prediction.possession)}</td>
+                                <td className="p-3">{formatOptional(prediction.firstGoalscorer)}</td>
+                                <td className="p-3">{prediction.extraTimeApplicable ? formatScore(prediction.homeScoreExtraTime, prediction.awayScoreExtraTime) : 'N/A'}</td>
+                                <td className="p-3">{prediction.penaltiesApplicable ? formatScore(prediction.homePenaltyScore, prediction.awayPenaltyScore) : 'N/A'}</td>
+                                <td className="p-3 font-black text-gold">{score ? `${score.totalPoints} pts` : 'Pending'}</td>
+                                <td className="p-3 text-white/70">{scoringReason(score)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

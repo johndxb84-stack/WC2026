@@ -39,7 +39,7 @@ export function scorePrediction(pred: {homeScore:number; awayScore:number; posse
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
   const possessionPoints = pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0;
   const firstGoalscorerPoints = pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0;
-  const extraTimePoints = fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 1 : 0;
-  const penaltyPoints = fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 1 : 0;
+  const extraTimePoints = 0;
+  const penaltyPoints = 0;
   return { outcomePoints, exactScorePoints, possessionPoints, firstGoalscorerPoints, extraTimePoints, penaltyPoints, totalPoints: outcomePoints + exactScorePoints + possessionPoints + firstGoalscorerPoints + extraTimePoints + penaltyPoints };
 }

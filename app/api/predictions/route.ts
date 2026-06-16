@@ -55,6 +55,14 @@ const manualPredictionOverrides: ManualPredictionOverride[] = [
       firstGoalscorer: 'Lamine Yamal',
     },
   },
+  {
+    fixtureId: 'match-20',
+    userName: 'Anthony',
+    before: '2026-06-16T08:30:00.000Z',
+    fields: {
+      firstGoalscorer: 'Marko Arnautović',
+    },
+  },
 ];
 
 function applyManualOverrides(predictions: StoredPrediction[]): StoredPrediction[] {

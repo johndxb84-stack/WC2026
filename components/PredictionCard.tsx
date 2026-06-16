@@ -167,14 +167,14 @@ export function PredictionCard({ fixture, order, initialPredictions, onPredictio
         </div>
       </div>
 
-      <button className="mt-4 rounded-full bg-gold px-5 py-3 font-black text-pitch disabled:opacity-50" disabled={!currentPlayer || !scoreIsComplete || takenScores.has(scoreKey)} onClick={submitPrediction} type="button">
+      <button className="mt-4 rounded-full bg-gold px-5 py-3 font-black text-pitch disabled:opacity-50" disabled={!currentPlayer || !scoreIsComplete} onClick={submitPrediction} type="button">
         Bet for {currentPlayer ?? 'all players'}
       </button>
       {message ? <p className="mt-3 text-sm text-white/80">{message}</p> : null}
 
       <div className="mt-4 rounded-2xl bg-white/5 p-3 text-sm text-white/75">
-        <p><b>Points:</b> 1 result, 2 exact 90-min score, +1 possession, +1 first goalscorer, +1 exact extra-time score, +1 exact penalty score.</p>
-        <p>Extra time and penalties can be marked N/A when you believe they will not apply.</p>
+        <p><b>Points:</b> 1 result/draw, 2 exact 90-min score, +1 possession, +1 first goalscorer.</p>
+        <p>Extra time and penalties are currently informational and do not add points.</p>
       </div>
 
       {reveal ? <div className="mt-4 space-y-2"><h4 className="font-bold">Revealed bets</h4>{initialPredictions.map((prediction) => <p key={prediction.userName}>{prediction.userName}: {prediction.homeScore}-{prediction.awayScore} · possession {prediction.possession ?? 'N/A'} · scorer {prediction.firstGoalscorer ?? 'N/A'} · ET {prediction.extraTimeApplicable ? `${prediction.homeScoreExtraTime}-${prediction.awayScoreExtraTime}` : 'N/A'} · pens {prediction.penaltiesApplicable ? `${prediction.homePenaltyScore}-${prediction.awayPenaltyScore}` : 'N/A'}</p>)}</div> : null}

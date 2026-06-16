@@ -243,6 +243,13 @@ export function Dashboard() {
     }
   }
 
+  const rankedPlayers = model.players
+    .map((player) => ({
+      ...player,
+      totalPoints: leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints,
+    }))
+    .sort((first, second) => second.totalPoints - first.totalPoints || first.name.localeCompare(second.name));
+
   return (
     <main className="min-h-screen p-4 md:p-8">
       <section className="mx-auto max-w-7xl space-y-6">
@@ -258,11 +265,11 @@ export function Dashboard() {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          {model.players.map((player, index) => (
+          {rankedPlayers.map((player, index) => (
             <div className="glass rounded-[1.75rem] p-5" key={player.name}>
               <div className="text-3xl">#{index + 1}</div>
               <h2 className="text-2xl font-bold">{player.name}</h2>
-              <p className="text-gold">{leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints} pts</p>
+              <p className="text-gold">{player.totalPoints} pts</p>
             </div>
           ))}
         </div>

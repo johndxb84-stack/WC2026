@@ -28,6 +28,31 @@ const teamSquads: Record<string, string[]> = {
   'IR Iran': [
     'Alireza Beiranvand', 'Payam Niazmand', 'Hossein Hosseini', 'Sadegh Moharrami', 'Ramin Rezaeian', 'Morteza Pouraliganji', 'Shoja Khalilzadeh', 'Hossein Kanaanizadegan', 'Majid Hosseini', 'Milad Mohammadi', 'Ehsan Hajsafi', 'Saeid Ezatolahi', 'Omid Ebrahimi', 'Ahmad Nourollahi', 'Ali Gholizadeh', 'Saman Ghoddos', 'Mehdi Torabi', 'Vahid Amiri', 'Mehdi Taremi', 'Sardar Azmoun', 'Karim Ansarifard', 'Shahriar Moghanlou', 'Allahyar Sayyadmanesh', 'Alireza Jahanbakhsh', 'Mohammad Mohebi', 'Yasin Salmani',
   ],
+
+  France: [
+    'Mike Maignan', 'Brice Samba', 'Alphonse Areola', 'Jules Koundé', 'William Saliba', 'Ibrahima Konaté', 'Dayot Upamecano', 'Theo Hernández', 'Ferland Mendy', 'Aurélien Tchouaméni', 'Adrien Rabiot', 'Eduardo Camavinga', 'Warren Zaïre-Emery', 'Antoine Griezmann', 'Kylian Mbappé', 'Ousmane Dembélé', 'Kingsley Coman', 'Marcus Thuram', 'Olivier Giroud', 'Randal Kolo Muani', 'Bradley Barcola', 'Christopher Nkunku', 'Moussa Diaby', 'Jonathan Clauss', 'Youssouf Fofana', 'Jean-Clair Todibo',
+  ],
+  Senegal: [
+    'Édouard Mendy', 'Seny Dieng', 'Mory Diaw', 'Kalidou Koulibaly', 'Abdou Diallo', 'Ismail Jakobs', 'Formose Mendy', 'Moussa Niakhaté', 'Pape Gueye', 'Pape Matar Sarr', 'Idrissa Gueye', 'Nampalys Mendy', 'Cheikhou Kouyaté', 'Pathé Ciss', 'Sadio Mané', 'Ismaïla Sarr', 'Iliman Ndiaye', 'Nicolas Jackson', 'Boulaye Dia', 'Habib Diallo', 'Krépin Diatta', 'Famara Diédhiou', 'Bamba Dieng', 'Lamine Camara', 'Kouadio Koné', 'Mikayil Faye',
+  ],
+  Iraq: [
+    'Jalal Hassan', 'Fahad Talib', 'Ahmed Basil', 'Mustafa Nadhim', 'Saad Natiq', 'Rebin Sulaka', 'Hussein Ali', 'Merchas Doski', 'Amir Al-Ammari', 'Osama Rashid', 'Ibrahim Bayesh', 'Bashar Resan', 'Zidane Iqbal', 'Ali Jasim', 'Youssef Amyn', 'Aymen Hussein', 'Mohanad Ali', 'Hussein Ali Al-Saedi', 'Frans Dhia Putros', 'Manaf Younis', 'Safaa Hadi', 'Danilo Al-Saed', 'Montader Madjed', 'Ahmed Farhan', 'Marko Farji', 'Ali Al-Hamadi',
+  ],
+  Norway: [
+    'Ørjan Nyland', 'Egil Selvik', 'Mathias Dyngeland', 'Julian Ryerson', 'Marcus Holmgren Pedersen', 'Leo Østigård', 'Kristoffer Ajer', 'Andreas Hanche-Olsen', 'David Møller Wolfe', 'Fredrik Aursnes', 'Sander Berge', 'Martin Ødegaard', 'Patrick Berg', 'Morten Thorsby', 'Oscar Bobb', 'Antonio Nusa', 'Alexander Sørloth', 'Erling Haaland', 'Jørgen Strand Larsen', 'Mohamed Elyounoussi', 'Hugo Vetlesen', 'Aron Dønnum', 'Ola Solbakken', 'Stian Gregersen', 'Mats Møller Dæhli', 'Kristian Thorstvedt',
+  ],
+  Argentina: [
+    'Emiliano Martínez', 'Franco Armani', 'Gerónimo Rulli', 'Nahuel Molina', 'Gonzalo Montiel', 'Cristian Romero', 'Nicolás Otamendi', 'Lisandro Martínez', 'Germán Pezzella', 'Nicolás Tagliafico', 'Marcos Acuña', 'Rodrigo De Paul', 'Leandro Paredes', 'Enzo Fernández', 'Alexis Mac Allister', 'Giovani Lo Celso', 'Exequiel Palacios', 'Lionel Messi', 'Ángel Di María', 'Julián Álvarez', 'Lautaro Martínez', 'Nicolás González', 'Paulo Dybala', 'Alejandro Garnacho', 'Thiago Almada', 'Valentín Carboni',
+  ],
+  Algeria: [
+    'Anthony Mandrea', 'Alexandre Oukidja', 'Rais Mbolhi', 'Ramy Bensebaini', 'Aïssa Mandi', 'Ahmed Touba', 'Youcef Atal', 'Rayan Aït-Nouri', 'Kevin Guitoun', 'Ismaël Bennacer', 'Houssem Aouar', 'Nabil Bentaleb', 'Sofiane Feghouli', 'Hicham Boudaoui', 'Riyad Mahrez', 'Youcef Belaïli', 'Saïd Benrahma', 'Adam Ounas', 'Amine Gouiri', 'Islam Slimani', 'Baghdad Bounedjah', 'Mohamed Amoura', 'Farès Chaïbi', 'Ramiz Zerrouki', 'Yasser Larouci', 'Jaouen Hadjam',
+  ],
+  Austria: [
+    'Patrick Pentz', 'Heinz Lindner', 'Alexander Schlager', 'Stefan Posch', 'Philipp Lienhart', 'Kevin Danso', 'Maximilian Wöber', 'David Alaba', 'Phillipp Mwene', 'Florian Grillitsch', 'Konrad Laimer', 'Xaver Schlager', 'Nicolas Seiwald', 'Marcel Sabitzer', 'Christoph Baumgartner', 'Michael Gregoritsch', 'Marko Arnautović', 'Sasa Kalajdzic', 'Patrick Wimmer', 'Romano Schmid', 'Andreas Weimann', 'Florian Kainz', 'Matthias Seidl', 'Gernot Trauner', 'Alexander Prass', 'Maximilian Entrup',
+  ],
+  Jordan: [
+    'Yazeed Abulaila', 'Abdallah Al-Fakhouri', 'Ahmad Al-Jaidi', 'Yazan Al-Arab', 'Abdallah Nasib', 'Salem Al-Ajalin', 'Mohammad Abu Hasheesh', 'Ihsan Haddad', 'Nizar Al-Rashdan', 'Noor Al-Rawabdeh', 'Rajaei Ayed', 'Ibrahim Sadeh', 'Mahmoud Mardi', 'Mousa Al-Taamari', 'Ali Olwan', 'Yazan Al-Naimat', 'Hamza Al-Dardour', 'Anas Al-Awadat', 'Fadi Awad', 'Saleh Rateb', 'Mohannad Abu Taha', 'Mohammad Afaneh', 'Bara Marei', 'Feras Shelbaieh', 'Mohammad Al-Dmeiri', 'Ehsan Haddad',
+  ],
   'New Zealand': [
     'Max Crocombe', 'Michael Woud', 'Alex Paulsen', 'Liberato Cacace', 'Tim Payne', 'Tommy Smith', 'Nando Pijnaker', 'Michael Boxall', 'Bill Tuiloma', 'Winston Reid', 'Joe Bell', 'Marko Stamenic', 'Matthew Garbett', 'Clayton Lewis', 'Sarpreet Singh', 'Callum McCowatt', 'Elijah Just', 'Ben Waine', 'Chris Wood', 'Kosta Barbarouses', 'Marco Rojas', 'Alex Greive', 'Logan Rogerson', 'Francis de Vries', 'Dane Ingham', 'Eli Just',
   ],
@@ -90,11 +115,59 @@ export const fixtures = [
     status: 'SCHEDULED',
     ...matchSquads('IR Iran', 'New Zealand'),
   },
+  {
+    id: 'match-17',
+    homeTeam: 'France',
+    awayTeam: 'Senegal',
+    homeLogo: '🇫🇷',
+    awayLogo: '🇸🇳',
+    kickoff: new Date('2026-06-16T23:00:00+04:00'),
+    venue: 'New York New Jersey Stadium',
+    stage: 'Group I',
+    status: 'SCHEDULED',
+    ...matchSquads('France', 'Senegal'),
+  },
+  {
+    id: 'match-18',
+    homeTeam: 'Iraq',
+    awayTeam: 'Norway',
+    homeLogo: '🇮🇶',
+    awayLogo: '🇳🇴',
+    kickoff: new Date('2026-06-17T02:00:00+04:00'),
+    venue: 'Boston Stadium',
+    stage: 'Group I',
+    status: 'SCHEDULED',
+    ...matchSquads('Iraq', 'Norway'),
+  },
+  {
+    id: 'match-19',
+    homeTeam: 'Argentina',
+    awayTeam: 'Algeria',
+    homeLogo: '🇦🇷',
+    awayLogo: '🇩🇿',
+    kickoff: new Date('2026-06-17T05:00:00+04:00'),
+    venue: 'Kansas City Stadium',
+    stage: 'Group J',
+    status: 'SCHEDULED',
+    ...matchSquads('Argentina', 'Algeria'),
+  },
+  {
+    id: 'match-20',
+    homeTeam: 'Austria',
+    awayTeam: 'Jordan',
+    homeLogo: '🇦🇹',
+    awayLogo: '🇯🇴',
+    kickoff: new Date('2026-06-16T08:00:00+04:00'),
+    venue: 'San Francisco Bay Stadium',
+    stage: 'Group J',
+    status: 'SCHEDULED',
+    ...matchSquads('Austria', 'Jordan'),
+  },
 ];
 
 export const mockPredictions: Array<PredictionRecord & { fixtureId: string }> = [];
 
-export function dashboardModel(now = new Date('2026-06-15T10:00:00+04:00')) {
+export function dashboardModel(now = new Date()) {
   const order = dailyOrder(now);
   return { now, referenceRotationDate, timezone: 'Asia/Dubai', order, players, fixtures, predictions: mockPredictions };
 }

@@ -246,20 +246,20 @@ export function Dashboard() {
   return (
     <main className="min-h-screen p-4 md:p-8">
       <section className="mx-auto max-w-7xl space-y-6">
-        <div className="glass rounded-3xl p-6 md:p-10">
+        <div className="glass rounded-[2rem] p-6 md:p-10">
           <p className="text-flood text-sm uppercase tracking-[.35em]">FIFA World Cup 2026</p>
-          <h1 className="mt-3 text-4xl font-black md:text-7xl">Friends Prediction Arena</h1>
+          <h1 className="mt-3 bg-gradient-to-r from-white via-flood to-orchid bg-clip-text text-4xl font-black text-transparent md:text-7xl">Prediction Arena</h1>
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className="rounded-full bg-white/10 px-4 py-2 text-sm text-flood">{syncStatus}</p>
-            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={downloadBackup} type="button">Download backup</button>
-            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={restoreLocalBackup} type="button">Restore local backup</button>
-            <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white/80" onClick={resetPredictions} type="button">Reset bets</button>
+            <p className="liquid-bubble rounded-full px-4 py-2 text-sm text-flood">{syncStatus}</p>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={downloadBackup} type="button">Download backup</button>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restoreLocalBackup} type="button">Restore local backup</button>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={resetPredictions} type="button">Reset bets</button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {model.players.map((player, index) => (
-            <div className="glass rounded-2xl p-5" key={player.name}>
+            <div className="glass rounded-[1.75rem] p-5" key={player.name}>
               <div className="text-3xl">#{index + 1}</div>
               <h2 className="text-2xl font-bold">{player.name}</h2>
               <p className="text-gold">{leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints} pts</p>
@@ -277,8 +277,10 @@ export function Dashboard() {
             const result = results.find((candidate) => candidate.fixtureId === fixture.id);
             const fixtureScores = scores.filter((score) => score.fixtureId === fixture.id);
 
+            const allSubmitted = model.order.every((name) => fixturePredictions.some((prediction) => prediction.userName === name));
+
             return (
-              <article className="glass rounded-3xl p-6" key={fixture.id}>
+              <article className={`glass rounded-[2rem] p-6 ${allSubmitted ? 'status-complete' : 'status-pending'}`} key={fixture.id}>
                 <div className="flex justify-between text-sm text-white/60">
                   <span>{fixture.venue}</span>
                   <span>{fixture.kickoff.toLocaleString('en-GB', { timeZone: model.timezone })}</span>
@@ -288,18 +290,18 @@ export function Dashboard() {
                   <span className="text-flood">vs</span>
                   <span>{fixture.awayTeam} {fixture.awayLogo}</span>
                 </div>
-                <div className="rounded-2xl bg-black/25 p-4">
+                <div className={`rounded-[1.5rem] p-4 ${allSubmitted ? 'status-complete' : 'status-pending'}`}>
                   <p><b>Current turn:</b> <span className="text-gold">{current ?? 'All submitted'}</span></p>
                   <p><b>Next player:</b> {nextPlayer ?? '—'}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {model.order.map((name) => {
                       const prediction = fixturePredictions.find((candidate) => candidate.userName === name);
-                      return <span className="rounded-full bg-white/10 px-3 py-1" key={name}>{name}: {prediction ? 'Submitted' : name === current ? 'Your turn' : 'Waiting'}</span>;
+                      return <span className={`rounded-full px-3 py-1 ${prediction ? 'status-complete' : 'status-pending'}`} key={name}>{name}: {prediction ? 'Submitted' : name === current ? 'Your turn' : 'Waiting'}</span>;
                     })}
                   </div>
                 </div>
                 {result ? (
-                  <div className="mt-4 rounded-2xl border border-gold/30 bg-gold/10 p-4 text-sm">
+                  <div className="mt-4 rounded-[1.5rem] border border-gold/40 bg-gold/15 p-4 text-sm">
                     <h3 className="font-bold text-gold">Official result used for scoring</h3>
                     <div className="mt-2 grid gap-2 md:grid-cols-4">
                       <p><b>90-min score:</b> {fixture.homeTeam} {result.homeScore90}-{result.awayScore90} {fixture.awayTeam}</p>
@@ -312,7 +314,7 @@ export function Dashboard() {
                 <div className="mt-4">
                   <h3 className="font-bold">Predictions and scoring breakdown</h3>
                   {reveal ? (
-                    <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
+                    <div className="mt-3 overflow-x-auto rounded-[1.5rem] border border-white/15">
                       <table className="w-full min-w-[980px] text-left text-sm">
                         <thead className="bg-white/10 text-white">
                           <tr>
@@ -348,7 +350,7 @@ export function Dashboard() {
                   ) : <p className="text-white/60">Hidden until all players submit or kickoff passes.</p>}
                 </div>
                 <PredictionCard fixture={fixture} order={model.order} initialPredictions={predictionRecords} onPredictionSubmitted={recordPrediction} />
-                <a className="mt-5 inline-block rounded-full bg-flood px-5 py-2 font-bold text-pitch" href={`/matches/${fixture.id}`}>Match details</a>
+                <a className="liquid-bubble mt-5 inline-block rounded-full px-5 py-2 font-bold text-white" href={`/matches/${fixture.id}`}>Match details</a>
               </article>
             );
           })}

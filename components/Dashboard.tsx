@@ -232,8 +232,16 @@ export function Dashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ predictions: nextPredictions }),
     });
-    if (!response.ok) throw new Error('Could not restore predictions');
-    return await response.json() as { persistence?: string; resetAt?: string | null; predictions?: StoredPrediction[]; receivedCount?: number; storedCount?: number };
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof payload === 'object' && payload && 'error' in payload ? String(payload.error) : 'Could not restore predictions');
+    return payload as { persistence?: string; resetAt?: string | null; predictions?: StoredPrediction[]; receivedCount?: number; storedCount?: number; error?: string };
+  }
+
+  async function readSharedPredictionCount() {
+    const response = await fetch('/api/predictions', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Could not verify Redis after push');
+    const payload = await response.json() as { predictions?: StoredPrediction[] };
+    return payload.predictions?.length ?? 0;
   }
 
   async function restoreBackup(backup: PredictionBackup, emptyMessage: string, successMessage: string) {
@@ -344,9 +352,10 @@ export function Dashboard() {
       setResetAt(saved.resetAt ?? backupToPush.resetAt ?? resetAt);
       window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: savedPredictions, resetAt: saved.resetAt ?? backupToPush.resetAt ?? resetAt }));
       await refreshResults();
-      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - sent ${saved.receivedCount ?? backupToPush.predictions.length}, stored ${saved.storedCount ?? savedPredictions.length}` : 'Pushed this device to temporary server memory');
-    } catch {
-      setSyncStatus('Push failed - this device was not uploaded');
+      const verifiedCount = await readSharedPredictionCount();
+      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - sent ${saved.receivedCount ?? backupToPush.predictions.length}, stored ${saved.storedCount ?? savedPredictions.length}, verified Redis ${verifiedCount}` : 'Pushed this device to temporary server memory');
+    } catch (error) {
+      setSyncStatus(error instanceof Error ? `Push failed - ${error.message}` : 'Push failed - this device was not uploaded');
     }
   }
 

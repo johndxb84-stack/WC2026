@@ -165,17 +165,21 @@ export async function POST(request: Request) {
 
 
 export async function PUT(request: Request) {
-  const body = await request.json();
-  const parsed = z.array(predictionSchema).parse(body.predictions ?? body);
-  const existing = await readPredictions();
+  try {
+    const body = await request.json();
+    const parsed = z.array(predictionSchema).parse(body.predictions ?? body);
+    const existing = await readPredictions();
 
-  // Backup restore / device push must never downgrade Redis by replacing a larger
-  // shared set with a smaller device-local set. Merge by user+fixture instead.
-  const merged = mergePredictionRecords(parsed, existing);
+    // Backup restore / device push must never downgrade Redis by replacing a larger
+    // shared set with a smaller device-local set. Merge by user+fixture instead.
+    const merged = mergePredictionRecords(parsed, existing);
 
-  await writePredictions(merged);
-  const state = await readState();
-  return NextResponse.json({ ok: true, predictions: merged, receivedCount: parsed.length, storedCount: merged.length, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
+    await writePredictions(merged);
+    const state = await readState();
+    return NextResponse.json({ ok: true, predictions: merged, receivedCount: parsed.length, storedCount: merged.length, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Could not save predictions' }, { status: 400 });
+  }
 }
 
 export async function DELETE() {

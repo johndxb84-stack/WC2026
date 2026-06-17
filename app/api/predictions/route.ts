@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { fixtures as mockFixtures, players as mockPlayers } from '@/lib/mock-data';
 import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/redis-store';
+import { readResults } from '@/lib/results-store';
+import { scorePrediction } from '@/lib/domain';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,6 +18,10 @@ type StoredPrediction = {
   submittedAt: string;
   possession?: string;
   firstGoalscorer?: string;
+  homeScoreExtraTime?: number | null;
+  awayScoreExtraTime?: number | null;
+  homePenaltyScore?: number | null;
+  awayPenaltyScore?: number | null;
 };
 
 type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null };
@@ -49,14 +55,20 @@ async function writeState(state: PredictionState) {
   }
 }
 
+const optionalNumber = z.number().int().min(0).nullable().optional();
+
 const predSchema = z.object({
   fixtureId: z.string(),
   userName: z.string(),
   homeScore: z.number().int().min(0),
   awayScore: z.number().int().min(0),
-  submittedAt: z.union([z.string(), z.date()]).transform((v) => new Date(v).toISOString()).optional(),
+  submittedAt: z.union([z.string(), z.date()]).transform((v: string | Date) => new Date(v).toISOString()).optional(),
   possession: z.string().optional(),
   firstGoalscorer: z.string().optional(),
+  homeScoreExtraTime: optionalNumber,
+  awayScoreExtraTime: optionalNumber,
+  homePenaltyScore: optionalNumber,
+  awayPenaltyScore: optionalNumber,
 });
 
 const bulkPredSchema = z.object({
@@ -64,9 +76,13 @@ const bulkPredSchema = z.object({
   userName: z.string(),
   homeScore: z.number().int().min(0),
   awayScore: z.number().int().min(0),
-  submittedAt: z.union([z.string(), z.date()]).transform((v) => new Date(v).toISOString()),
+  submittedAt: z.union([z.string(), z.date()]).transform((v: string | Date) => new Date(v).toISOString()),
   possession: z.string().optional(),
   firstGoalscorer: z.string().optional(),
+  homeScoreExtraTime: optionalNumber,
+  awayScoreExtraTime: optionalNumber,
+  homePenaltyScore: optionalNumber,
+  awayPenaltyScore: optionalNumber,
 });
 
 function toApiFixture(f: (typeof mockFixtures)[number]) {
@@ -87,20 +103,69 @@ function toApiPrediction(p: StoredPrediction) {
     user: { name: p.userName },
     predictedHomeScore90: p.homeScore,
     predictedAwayScore90: p.awayScore,
+    possession: p.possession ?? null,
+    firstGoalscorer: p.firstGoalscorer ?? null,
+    homeScoreExtraTime: p.homeScoreExtraTime ?? null,
+    awayScoreExtraTime: p.awayScoreExtraTime ?? null,
+    homePenaltyScore: p.homePenaltyScore ?? null,
+    awayPenaltyScore: p.awayPenaltyScore ?? null,
     submittedAt: p.submittedAt,
     status: 'SUBMITTED',
     score: null,
   };
 }
 
+function computePlayerPoints(
+  predictions: StoredPrediction[],
+  results: Awaited<ReturnType<typeof readResults>>,
+) {
+  const totals: Record<string, number> = {};
+  for (const pred of predictions) {
+    const res = results[pred.fixtureId];
+    if (!res) continue;
+    const fixture = {
+      homeScore90: res.homeScore90,
+      awayScore90: res.awayScore90,
+      homePossession: res.homePossession,
+      awayPossession: res.awayPossession,
+      firstGoalscorerId: res.firstGoalscorer ?? null,
+      homeScoreExtraTime: res.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: res.awayScoreExtraTime ?? null,
+      homePenaltyScore: res.homePenaltyScore ?? null,
+      awayPenaltyScore: res.awayPenaltyScore ?? null,
+    };
+    const predForScore = {
+      homeScore: pred.homeScore,
+      awayScore: pred.awayScore,
+      possession: pred.possession as 'HOME' | 'AWAY' | 'EQUAL' | undefined,
+      firstGoalscorerId: pred.firstGoalscorer ?? null,
+      homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+      homePenaltyScore: pred.homePenaltyScore ?? null,
+      awayPenaltyScore: pred.awayPenaltyScore ?? null,
+    };
+    const fixtureForScore = { id: pred.fixtureId, kickoff: new Date(0), ...fixture };
+    const { totalPoints } = scorePrediction(predForScore, fixtureForScore);
+    totals[pred.userName] = (totals[pred.userName] ?? 0) + totalPoints;
+  }
+  return totals;
+}
+
 export async function GET() {
   try {
-    const state = await readState();
+    const [state, results] = await Promise.all([readState(), readResults()]);
     const persistence = redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory';
+    const playerPoints = computePlayerPoints(state.predictions, results);
     return NextResponse.json({
       fixtures: mockFixtures.map(toApiFixture),
       predictions: state.predictions.map(toApiPrediction),
-      players: mockPlayers.map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl, totalPoints: 0 })),
+      players: mockPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        avatarUrl: p.avatarUrl,
+        totalPoints: playerPoints[p.name] ?? 0,
+      })),
+      results,
       persistence,
     });
   } catch (err) {
@@ -133,6 +198,10 @@ export async function POST(request: Request) {
       submittedAt: body.submittedAt ?? new Date().toISOString(),
       possession: body.possession,
       firstGoalscorer: body.firstGoalscorer,
+      homeScoreExtraTime: body.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: body.awayScoreExtraTime ?? null,
+      homePenaltyScore: body.homePenaltyScore ?? null,
+      awayPenaltyScore: body.awayPenaltyScore ?? null,
     };
 
     await writeState({ predictions: [...withoutExisting, newPrediction], resetAt: state.resetAt });
@@ -164,6 +233,10 @@ export async function PUT(request: Request) {
           submittedAt: pred.submittedAt,
           possession: pred.possession,
           firstGoalscorer: pred.firstGoalscorer,
+          homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
+          awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+          homePenaltyScore: pred.homePenaltyScore ?? null,
+          awayPenaltyScore: pred.awayPenaltyScore ?? null,
         });
       }
     }

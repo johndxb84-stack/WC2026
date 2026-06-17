@@ -155,8 +155,9 @@ export async function PUT(request: Request) {
   const deduped: StoredPrediction[] = [];
 
   for (const prediction of parsed) {
+    // Backup restore should preserve every user's saved bet. The live POST path still
+    // rejects duplicate scores, but restore must not silently drop historical records.
     if (deduped.some((candidate) => candidate.fixtureId === prediction.fixtureId && candidate.userName === prediction.userName)) continue;
-    if (deduped.some((candidate) => candidate.fixtureId === prediction.fixtureId && candidate.homeScore === prediction.homeScore && candidate.awayScore === prediction.awayScore)) continue;
     deduped.push(prediction);
   }
 

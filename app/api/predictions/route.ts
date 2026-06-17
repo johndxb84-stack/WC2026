@@ -28,11 +28,12 @@ export async function GET() {
       }),
     ]);
 
-    const players = users.map(u => ({
+    type UserWithPreds = { id: string; name: string; avatarUrl: string | null; predictions: { score: { totalPoints: number } | null }[] };
+    const players = (users as UserWithPreds[]).map(u => ({
       id: u.id,
       name: u.name,
       avatarUrl: u.avatarUrl,
-      totalPoints: u.predictions.reduce((sum: number, p: { score: { totalPoints: number } | null }) => sum + (p.score?.totalPoints ?? 0), 0),
+      totalPoints: u.predictions.reduce((sum, p) => sum + (p.score?.totalPoints ?? 0), 0),
     }));
 
     return NextResponse.json({ fixtures, predictions, players });

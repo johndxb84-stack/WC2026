@@ -160,7 +160,7 @@ export function Dashboard() {
         if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
           const saved = await saveAllPredictions(mergedPredictions);
           await loadLeaderboard();
-          setSyncStatus(saved.persistence === 'redis' ? `Synced globally (local backup restored) - ${mergedPredictions.length} shared bets` : 'Restored local backup to temporary server memory');
+          setSyncStatus(saved.persistence === 'redis' ? `Synced globally (local backup restored) - sent ${saved.receivedCount ?? mergedPredictions.length}, stored ${saved.storedCount ?? saved.predictions?.length ?? mergedPredictions.length}` : 'Restored local backup to temporary server memory');
           return;
         }
 
@@ -223,7 +223,7 @@ export function Dashboard() {
       body: JSON.stringify({ predictions: nextPredictions }),
     });
     if (!response.ok) throw new Error('Could not restore predictions');
-    return await response.json() as { persistence?: string; resetAt?: string | null; predictions?: StoredPrediction[] };
+    return await response.json() as { persistence?: string; resetAt?: string | null; predictions?: StoredPrediction[]; receivedCount?: number; storedCount?: number };
   }
 
   async function restoreBackup(backup: PredictionBackup, emptyMessage: string, successMessage: string) {
@@ -239,7 +239,7 @@ export function Dashboard() {
       const saved = await saveAllPredictions(backup.predictions);
       window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
       await refreshResults();
-      setSyncStatus(saved.persistence === 'redis' ? `Synced globally (backup restored) - ${backup.predictions.length} shared bets` : successMessage);
+      setSyncStatus(saved.persistence === 'redis' ? `Synced globally (backup restored) - sent ${saved.receivedCount ?? backup.predictions.length}, stored ${saved.storedCount ?? saved.predictions?.length ?? backup.predictions.length}` : successMessage);
     } catch {
       setSyncStatus('Restore failed - shared store did not accept backup');
     }
@@ -267,10 +267,14 @@ export function Dashboard() {
       const visibleAndLocalPredictions = mergePredictions(localPredictions, predictions);
       const mergedPredictions = mergePredictions(remotePredictions, visibleAndLocalPredictions);
       let uploadedLocalChanges = false;
+      let uploadReceivedCount = mergedPredictions.length;
+      let uploadStoredCount = mergedPredictions.length;
 
       if (mergedPredictions.length > remotePredictions.length) {
         const saved = await saveAllPredictions(mergedPredictions);
         uploadedLocalChanges = saved.persistence === 'redis';
+        uploadReceivedCount = saved.receivedCount ?? mergedPredictions.length;
+        uploadStoredCount = saved.storedCount ?? saved.predictions?.length ?? mergedPredictions.length;
       }
 
       if (mergedPredictions.length > 0) {
@@ -284,7 +288,7 @@ export function Dashboard() {
       setSyncStatus(payload.persistence === 'redis'
         ? mergedPredictions.length > 0
           ? uploadedLocalChanges
-            ? `Synced latest${mode} - ${mergedPredictions.length} shared bets uploaded and loaded`
+            ? `Synced latest${mode} - sent ${uploadReceivedCount}, stored ${uploadStoredCount}`
             : `Synced latest${mode} - ${mergedPredictions.length} shared bets loaded`
           : `Synced latest${mode} - no shared bets found`
         : 'Synced latest from temporary server memory');
@@ -305,7 +309,7 @@ export function Dashboard() {
       const saved = await saveAllPredictions(predictions);
       window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions, resetAt }));
       await refreshResults();
-      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - ${predictions.length} shared bets now in Redis` : 'Pushed this device to temporary server memory');
+      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - sent ${saved.receivedCount ?? predictions.length}, stored ${saved.storedCount ?? saved.predictions?.length ?? predictions.length}` : 'Pushed this device to temporary server memory');
     } catch {
       setSyncStatus('Push failed - this device was not uploaded');
     }

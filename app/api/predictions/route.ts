@@ -163,7 +163,7 @@ export async function PUT(request: Request) {
 
   await writePredictions(deduped);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: deduped, receivedCount: parsed.length, storedCount: deduped.length, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }
 
 export async function DELETE() {

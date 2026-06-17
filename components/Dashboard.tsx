@@ -216,6 +216,13 @@ export function Dashboard() {
     return readBackupFromStorage(storedPredictionsKey);
   }
 
+  function largestAvailableBackup(): PredictionBackup {
+    const currentBackup = readLocalBackup();
+    const previousBackup = readBackupFromStorage(previousPredictionsKey);
+    const visibleBackup = { predictions, resetAt };
+    return [currentBackup, previousBackup, visibleBackup].sort((left, right) => right.predictions.length - left.predictions.length)[0];
+  }
+
   async function saveAllPredictions(nextPredictions: StoredPrediction[]) {
     const response = await fetch('/api/predictions', {
       method: 'PUT',
@@ -263,9 +270,12 @@ export function Dashboard() {
       const remotePredictions = (payload.predictions ?? []).map(revivePrediction);
       const localBackup = readLocalBackup();
       const remoteResetIsNewer = payload.resetAt && (!localBackup.resetAt || new Date(payload.resetAt).getTime() > new Date(localBackup.resetAt).getTime());
+      const previousBackup = readBackupFromStorage(previousPredictionsKey);
       const localPredictions = remoteResetIsNewer ? [] : localBackup.predictions;
+      const previousPredictions = remoteResetIsNewer ? [] : previousBackup.predictions;
       const visibleAndLocalPredictions = mergePredictions(localPredictions, predictions);
-      const mergedPredictions = mergePredictions(remotePredictions, visibleAndLocalPredictions);
+      const visibleLocalAndPreviousPredictions = mergePredictions(visibleAndLocalPredictions, previousPredictions);
+      const mergedPredictions = mergePredictions(remotePredictions, visibleLocalAndPreviousPredictions);
       let uploadedLocalChanges = false;
       let uploadReceivedCount = mergedPredictions.length;
       let uploadStoredCount = mergedPredictions.length;
@@ -299,17 +309,22 @@ export function Dashboard() {
 
 
   async function pushThisDeviceToRedis() {
-    if (predictions.length === 0) {
+    const backupToPush = largestAvailableBackup();
+
+    if (backupToPush.predictions.length === 0) {
       setSyncStatus('Nothing to push from this device');
       return;
     }
 
     try {
-      setSyncStatus(`Pushing ${predictions.length} visible bets to Redis...`);
-      const saved = await saveAllPredictions(predictions);
-      window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions, resetAt }));
+      setSyncStatus(`Pushing ${backupToPush.predictions.length} best available bets to Redis...`);
+      const saved = await saveAllPredictions(backupToPush.predictions);
+      const savedPredictions = (saved.predictions ?? backupToPush.predictions).map(revivePrediction);
+      setPredictions(savedPredictions);
+      setResetAt(saved.resetAt ?? backupToPush.resetAt ?? resetAt);
+      window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: savedPredictions, resetAt: saved.resetAt ?? backupToPush.resetAt ?? resetAt }));
       await refreshResults();
-      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - sent ${saved.receivedCount ?? predictions.length}, stored ${saved.storedCount ?? saved.predictions?.length ?? predictions.length}` : 'Pushed this device to temporary server memory');
+      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - sent ${saved.receivedCount ?? backupToPush.predictions.length}, stored ${saved.storedCount ?? savedPredictions.length}` : 'Pushed this device to temporary server memory');
     } catch {
       setSyncStatus('Push failed - this device was not uploaded');
     }

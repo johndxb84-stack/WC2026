@@ -107,6 +107,11 @@ function leaderboardFromScores(scoreRows: ScoreRow[]) {
   return totals;
 }
 
+function syncedStatus(mode: string | undefined, predictionCount: number) {
+  const suffix = mode ? ` (${mode})` : '';
+  return predictionCount > 0 ? `Synced globally${suffix} - ${predictionCount} shared bets` : `Synced globally${suffix} - no shared bets in Redis yet`;
+}
+
 export function Dashboard() {
   const model = dashboardModel();
   const [predictions, setPredictions] = useState<StoredPrediction[]>(model.predictions.map(withDefaultOptions));
@@ -155,11 +160,11 @@ export function Dashboard() {
         if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
           const saved = await saveAllPredictions(mergedPredictions);
           await loadLeaderboard();
-          setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (local backup restored)' : 'Restored local backup to temporary server memory');
+          setSyncStatus(saved.persistence === 'redis' ? `Synced globally (local backup restored) - ${mergedPredictions.length} shared bets` : 'Restored local backup to temporary server memory');
           return;
         }
 
-        setSyncStatus(payload.persistence === 'redis' ? `Synced globally${payload.env?.mode ? ` (${payload.env.mode})` : ''}` : payload.env?.lastError ? 'Temporary server memory - Redis connection failed' : payload.env?.configured === false ? 'Temporary server memory - no supported Redis env visible to this deployment' : 'Temporary server memory - configure Redis for worldwide sync');
+        setSyncStatus(payload.persistence === 'redis' ? syncedStatus(payload.env?.mode, remotePredictions.length) : payload.env?.lastError ? 'Temporary server memory - Redis connection failed' : payload.env?.configured === false ? 'Temporary server memory - no supported Redis env visible to this deployment' : 'Temporary server memory - configure Redis for worldwide sync');
       } catch {
         if (localBackup.predictions.length === 0) {
           setSyncStatus('Offline fallback only - shared store unavailable');
@@ -234,7 +239,7 @@ export function Dashboard() {
       const saved = await saveAllPredictions(backup.predictions);
       window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
       await refreshResults();
-      setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (backup restored)' : successMessage);
+      setSyncStatus(saved.persistence === 'redis' ? `Synced globally (backup restored) - ${backup.predictions.length} shared bets` : successMessage);
     } catch {
       setSyncStatus('Restore failed - shared store did not accept backup');
     }
@@ -307,7 +312,7 @@ export function Dashboard() {
       if (!response.ok) throw new Error(payload.reason ?? 'Prediction rejected');
       if (payload.predictions) setPredictions(payload.predictions.map(revivePrediction));
       setResetAt(payload.resetAt ?? null);
-      setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Saved on server memory - configure Redis for durable worldwide sync');
+      setSyncStatus(payload.persistence === 'redis' ? 'Synced globally - bet saved' : 'Saved on server memory - configure Redis for durable worldwide sync');
     } catch (error) {
       setSyncStatus(error instanceof Error ? error.message : 'Could not save shared prediction');
     }

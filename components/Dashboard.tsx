@@ -103,7 +103,7 @@ export function Dashboard() {
       try {
         const response = await fetch('/api/predictions', { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to load shared predictions');
-        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string; resetAt: string | null; env?: { configured: boolean } };
+        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string; resetAt: string | null; env?: { configured: boolean; mode?: string; hasRedisUrl?: boolean } };
         if (!active) return;
 
         const remotePredictions = payload.predictions.map(revivePrediction);
@@ -119,7 +119,7 @@ export function Dashboard() {
           return;
         }
 
-        setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : payload.env?.configured === false ? 'Temporary server memory - KV env not visible to this deployment' : 'Temporary server memory - configure Vercel KV for worldwide sync');
+        setSyncStatus(payload.persistence === 'redis' ? `Synced globally${payload.env?.mode ? ` (${payload.env.mode})` : ''}` : payload.env?.configured === false ? 'Temporary server memory - no supported Redis env visible to this deployment' : 'Temporary server memory - configure Redis for worldwide sync');
       } catch {
         if (localBackup.predictions.length === 0) {
           setSyncStatus('Offline fallback only - shared store unavailable');
@@ -260,7 +260,7 @@ export function Dashboard() {
       if (!response.ok) throw new Error(payload.reason ?? 'Prediction rejected');
       if (payload.predictions) setPredictions(payload.predictions.map(revivePrediction));
       setResetAt(payload.resetAt ?? null);
-      setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Saved on server memory - configure Vercel KV for durable worldwide sync');
+      setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Saved on server memory - configure Redis for durable worldwide sync');
     } catch (error) {
       setSyncStatus(error instanceof Error ? error.message : 'Could not save shared prediction');
     }

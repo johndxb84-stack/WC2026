@@ -81,20 +81,24 @@ export function Dashboard() {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [scores, setScores] = useState<ScoreRow[]>([]);
 
+  async function refreshResults() {
+    try {
+      const response = await fetch('/api/results', { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json() as { leaderboard?: LeaderboardRow[]; results?: ResultRow[]; scores?: ScoreRow[] };
+      setLeaderboard(payload.leaderboard ?? []);
+      setResults(payload.results ?? []);
+      setScores(payload.scores ?? []);
+    } catch {
+      // Keep existing points if result sync is unavailable.
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
     async function loadLeaderboard() {
-      try {
-        const response = await fetch('/api/results', { cache: 'no-store' });
-        if (!response.ok) return;
-        const payload = await response.json() as { leaderboard?: LeaderboardRow[]; results?: ResultRow[]; scores?: ScoreRow[] };
-        setLeaderboard(payload.leaderboard ?? []);
-        setResults(payload.results ?? []);
-        setScores(payload.scores ?? []);
-      } catch {
-        // Keep existing points if result sync is unavailable.
-      }
+      await refreshResults();
     }
 
     async function loadSharedPredictions() {
@@ -115,6 +119,7 @@ export function Dashboard() {
 
         if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
           const saved = await saveAllPredictions(mergedPredictions);
+          await loadLeaderboard();
           setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (local backup restored)' : 'Restored local backup to temporary server memory');
           return;
         }
@@ -193,6 +198,7 @@ export function Dashboard() {
       setResetAt(backup.resetAt);
       const saved = await saveAllPredictions(backup.predictions);
       window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
+      await refreshResults();
       setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (backup restored)' : successMessage);
     } catch {
       setSyncStatus('Restore failed - shared store did not accept backup');

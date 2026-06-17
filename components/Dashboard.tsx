@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, referenceRotationDate, shouldReveal } from '@/lib/domain';
+import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, shouldReveal } from '@/lib/domain';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
@@ -21,6 +21,8 @@ const FLAG: Record<string, string> = {
   'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴', 'DR Congo': '🇨🇩',
   'Uzbekistan': '🇺🇿',
 };
+
+const MEDAL = ['🥇', '🥈', '🥉'];
 
 type TeamInfo = { name: string; shortName: string | null; logoUrl: string | null };
 type ApiFixture = {
@@ -56,6 +58,23 @@ function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
     }));
 }
 
+function formatKickoff(kickoff: Date, todayKey: string, tomorrowKey: string) {
+  const key = dateKeyInTimezone(kickoff, TIMEZONE);
+  const time = kickoff.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit' });
+  const day = key === todayKey ? 'Today' : key === tomorrowKey ? 'Tomorrow' : kickoff.toLocaleDateString('en-GB', { timeZone: TIMEZONE, day: 'numeric', month: 'short' });
+  return `${day} · ${time}`;
+}
+
+function countdown(kickoff: Date, now: Date) {
+  const diff = kickoff.getTime() - now.getTime();
+  if (diff <= 0) return null;
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  if (h >= 24) return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+  if (h > 0) return `in ${h}h ${m}m`;
+  return `in ${m}m`;
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,18 +88,16 @@ export function Dashboard() {
         return r.json() as Promise<DashboardData>;
       })
       .then(d => { setData(d); setError(null); setLastSynced(new Date()); })
-      .catch(() => setError('Failed to load data. Retrying…'));
+      .catch(() => setError('Connection lost — retrying…'));
 
   useEffect(() => {
     load();
     const timer = setInterval(load, POLL_MS);
-    // Refresh immediately when the tab becomes visible again (user switching devices/apps)
     const onVisible = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
-  // Update "X seconds ago" label every second
   useEffect(() => {
     const t = setInterval(() => {
       if (lastSynced) setSyncAge(Math.floor((Date.now() - lastSynced.getTime()) / 1000));
@@ -91,32 +108,31 @@ export function Dashboard() {
   if (error && !data) {
     return (
       <main className="min-h-screen p-8 flex items-center justify-center">
-        <p className="text-red-400">{error}</p>
+        <p className="text-rose">{error}</p>
       </main>
     );
   }
   if (!data) {
     return (
-      <main className="min-h-screen p-8 flex items-center justify-center">
-        <p className="text-white/60">Loading…</p>
+      <main className="min-h-screen p-8 flex flex-col items-center justify-center gap-3">
+        <div className="live-dot" />
+        <p className="text-white/60">Loading the arena…</p>
       </main>
     );
   }
 
   const now = new Date();
   const todayKey = dateKeyInTimezone(now, TIMEZONE);
+  const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
   const todayOrder = dailyOrder(now);
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
+  const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
 
-  // Include today's Dubai matches PLUS early-morning next-Dubai-day matches that are
-  // still the same evening in the US (WC2026 last slot = ~10pm ET = ~06:00 Dubai next day)
-  const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
   const todayFixtures = data.fixtures.filter(f => {
     const kickoff = new Date(f.scheduledKickoff);
     const kickoffKey = dateKeyInTimezone(kickoff, TIMEZONE);
     if (kickoffKey === todayKey) return true;
     if (kickoffKey === tomorrowKey) {
-      // Include early-morning next-Dubai-day games (before 10:00 Dubai = still US same day)
       const kickoffHourDubai = (kickoff.getUTCHours() + 4) % 24;
       return kickoffHourDubai < 10;
     }
@@ -124,48 +140,89 @@ export function Dashboard() {
   }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <section className="mx-auto max-w-7xl space-y-6">
-        {/* Header */}
-        <div className="glass rounded-3xl p-6 md:p-10">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-flood uppercase tracking-[.35em] text-sm">FIFA World Cup 2026</p>
-            <div className="flex items-center gap-2 text-xs text-white/50">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span>Live · synced {syncAge < 5 ? 'just now' : `${syncAge}s ago`}</span>
-              <button onClick={() => load()} className="ml-1 text-flood hover:text-white transition-colors">↻ Refresh</button>
+    <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+      <section className="mx-auto max-w-5xl space-y-8">
+
+        {/* ---------- Hero ---------- */}
+        <header className="glass rounded-3xl p-6 md:p-9 animate-rise">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-flood uppercase tracking-[.3em] text-xs font-semibold">World Cup 2026</p>
+            <button
+              onClick={() => load()}
+              className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors"
+            >
+              <span className="live-dot" />
+              {syncAge < 5 ? 'Live' : `synced ${syncAge}s ago`}
+            </button>
+          </div>
+
+          <h1 className="mt-3 text-4xl md:text-6xl font-black tracking-tight">
+            Prediction Arena
+          </h1>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-white/50">Today&apos;s betting order</span>
+            <div className="flex items-center gap-1.5">
+              {todayOrder.map((name, i) => (
+                <span key={name} className="flex items-center gap-1.5">
+                  <span className="pill bg-white/8 text-white font-semibold">{name}</span>
+                  {i < todayOrder.length - 1 && <span className="text-flood/60">→</span>}
+                </span>
+              ))}
             </div>
           </div>
-          <h1 className="text-4xl md:text-7xl font-black mt-3">Prediction Arena</h1>
-          <p className="mt-4 text-white/70">
-            Today&apos;s order: <span className="text-flood font-semibold">{todayOrder.join(' → ')}</span>
-          </p>
-          {error && <p className="mt-2 text-yellow-400 text-sm">{error}</p>}
-        </div>
+          {error && <p className="mt-3 text-gold text-sm">{error}</p>}
+        </header>
 
-        {/* Leaderboard */}
-        <div>
-          <p className="text-white/50 uppercase tracking-widest text-xs mb-3">Leaderboard</p>
-          <div className="grid md:grid-cols-3 gap-4">
-            {sortedPlayers.map((p, i) => (
-              <div className="glass rounded-2xl p-5" key={p.name}>
-                <div className="text-3xl text-white/30">#{i + 1}</div>
-                <h2 className="text-2xl font-bold mt-1">{p.name}</h2>
-                <p className="text-gold text-lg font-semibold">{p.totalPoints} pts</p>
-              </div>
-            ))}
+        {/* ---------- Leaderboard ---------- */}
+        <section className="animate-rise" style={{ animationDelay: '60ms' }}>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Leaderboard</h2>
+            <span className="text-white/30 text-xs">{sortedPlayers.length} players</span>
           </div>
-        </div>
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
+            {sortedPlayers.map((p, i) => {
+              const isLeader = i === 0 && p.totalPoints > 0;
+              const behind = leaderPts - p.totalPoints;
+              return (
+                <div
+                  key={p.name}
+                  className={`relative glass rounded-2xl p-4 md:p-5 text-center overflow-hidden ${
+                    isLeader ? 'ring-1 ring-gold/40' : ''
+                  }`}
+                >
+                  {isLeader && (
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-gold to-transparent" />
+                  )}
+                  <div className="text-2xl md:text-3xl">{MEDAL[i] ?? `#${i + 1}`}</div>
+                  <h3 className="mt-1 text-base md:text-xl font-bold truncate">{p.name}</h3>
+                  <p className={`mt-1 text-xl md:text-3xl font-black ${isLeader ? 'text-gold' : 'text-white'}`}>
+                    {p.totalPoints}
+                  </p>
+                  <p className="text-[0.65rem] md:text-xs text-white/40 uppercase tracking-wide">pts</p>
+                  {i > 0 && behind > 0 && (
+                    <p className="mt-1 text-[0.65rem] md:text-xs text-white/35">−{behind} behind</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
-        {/* Today's matches */}
-        <div>
-          <p className="text-white/50 uppercase tracking-widest text-xs mb-3">
-            Today&apos;s matches — {todayKey} Dubai (incl. early morning next day)
-          </p>
+        {/* ---------- Today's matches ---------- */}
+        <section className="animate-rise" style={{ animationDelay: '120ms' }}>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Today&apos;s Matches</h2>
+            <span className="text-white/30 text-xs">{todayFixtures.length} to bet</span>
+          </div>
+
           {todayFixtures.length === 0 ? (
-            <div className="glass rounded-2xl p-6 text-center text-white/50">No matches scheduled today.</div>
+            <div className="glass rounded-2xl p-10 text-center text-white/50">
+              <div className="text-4xl mb-2">🌙</div>
+              No matches today. Check back tomorrow!
+            </div>
           ) : (
-            <div className="grid lg:grid-cols-2 gap-5">
+            <div className="grid md:grid-cols-2 gap-4 md:gap-5">
               {todayFixtures.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
                 const fixtureOrder = dailyOrder(kickoff);
@@ -174,86 +231,114 @@ export function Dashboard() {
                 const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);
                 const isLocked = now >= kickoff;
                 const result = data.results?.[f.id];
+                const cd = countdown(kickoff, now);
+                const betCount = preds.length;
+
+                let statusPill;
+                if (result) {
+                  statusPill = <span className="pill bg-gold/12 text-gold border border-gold/20">Result in</span>;
+                } else if (isLocked) {
+                  statusPill = <span className="pill bg-rose/12 text-rose border border-rose/20">Closed</span>;
+                } else {
+                  statusPill = <span className="pill bg-grass/12 text-grass border border-grass/20"><span className="live-dot" />Open</span>;
+                }
 
                 return (
-                  <article className="glass rounded-3xl p-6" key={f.id}>
-                    <div className="flex justify-between text-sm text-white/60">
-                      <span>{f.venue}</span>
-                      <span>{kickoff.toLocaleString('en-GB', { timeZone: TIMEZONE })}</span>
-                    </div>
-                    <div className="my-5 flex items-center justify-between text-2xl md:text-3xl font-black">
-                      <span>{FLAG[f.homeTeam.name] ?? ''} {f.homeTeam.name}</span>
-                      <span className="text-flood">vs</span>
-                      <span>{f.awayTeam.name} {FLAG[f.awayTeam.name] ?? ''}</span>
+                  <article key={f.id} className="glass rounded-3xl p-5 flex flex-col gap-4">
+                    {/* top row */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-white/40">{f.venue}</span>
+                      {statusPill}
                     </div>
 
-                    {result && (
-                      <div className="rounded-xl bg-flood/10 border border-flood/20 px-4 py-2 mb-3 text-sm">
-                        <span className="text-flood font-semibold">Result: </span>
-                        <span>{f.homeTeam.name} {result.homeScore90}–{result.awayScore90} {f.awayTeam.name}</span>
+                    {/* teams */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 text-center">
+                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.homeTeam.name] ?? '⚽'}</div>
+                        <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                       </div>
-                    )}
+                      <div className="px-2 text-center">
+                        {result ? (
+                          <div className="text-2xl md:text-3xl font-black tabular-nums">
+                            {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
+                          </div>
+                        ) : (
+                          <div className="text-white/30 font-black text-lg">VS</div>
+                        )}
+                      </div>
+                      <div className="flex-1 text-center">
+                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.awayTeam.name] ?? '⚽'}</div>
+                        <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
+                      </div>
+                    </div>
 
-                    <div className="rounded-2xl bg-black/25 p-4">
-                      {isLocked ? (
-                        <p className="text-sm text-yellow-400">Betting closed — match has started.</p>
-                      ) : (
-                        <>
-                          <p className="text-sm">
-                            <b>Current turn:</b>{' '}
-                            <span className="text-flood">{current ?? 'All submitted'}</span>
-                          </p>
-                          {current && (
-                            <p className="text-sm text-white/60">
-                              Next: {(fixtureOrder as string[])[(fixtureOrder as string[]).indexOf(current) + 1] ?? '—'}
-                            </p>
-                          )}
-                        </>
-                      )}
-                      <div className="mt-3 flex flex-wrap gap-2">
+                    {/* kickoff */}
+                    <div className="flex items-center justify-center gap-2 text-sm">
+                      <span className="text-white/60">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                      {cd && !isLocked && <span className="pill bg-white/8 text-flood">{cd}</span>}
+                    </div>
+
+                    {/* betting progress */}
+                    <div className="glass-soft p-3">
+                      <div className="flex items-center justify-between gap-2">
                         {fixtureOrder.map(name => {
-                          const pred = preds.find(p => p.userName === name);
+                          const hasBet = preds.some(p => p.userName === name);
+                          const isCurrent = name === current && !isLocked;
                           return (
-                            <span
-                              key={name}
-                              className={`rounded-full px-3 py-1 text-sm ${
-                                pred ? 'bg-green-500/20 text-green-300' :
-                                name === current ? 'bg-flood/20 text-flood font-semibold' :
-                                'bg-white/10 text-white/50'
-                              }`}
-                            >
-                              {pred ? `✓ ${name}` : name === current ? `⏳ ${name}` : name}
-                            </span>
+                            <div key={name} className="flex-1 flex flex-col items-center gap-1">
+                              <span
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                  hasBet ? 'bg-grass/20 text-grass' :
+                                  isCurrent ? 'bg-flood/20 text-flood' :
+                                  'bg-white/8 text-white/40'
+                                }`}
+                              >
+                                {hasBet ? '✓' : isCurrent ? '⏳' : name[0]}
+                              </span>
+                              <span className={`text-[0.7rem] ${isCurrent ? 'text-flood font-semibold' : 'text-white/40'}`}>
+                                {name}
+                              </span>
+                            </div>
                           );
                         })}
                       </div>
+                      <p className="mt-2 text-center text-xs text-white/50">
+                        {isLocked
+                          ? `Betting closed · ${betCount}/3 placed`
+                          : current
+                            ? <>Waiting on <span className="text-flood font-semibold">{current}</span> · {betCount}/3 placed</>
+                            : 'All bets in! 🎉'}
+                      </p>
                     </div>
 
+                    {/* revealed predictions (compact) */}
                     {reveal && preds.length > 0 && (
-                      <div className="mt-3">
+                      <div className="flex flex-wrap justify-center gap-2 text-xs">
                         {preds.map(p => (
-                          <p key={p.userName} className="text-sm text-white/70">
-                            {p.userName}: {p.homeScore}–{p.awayScore}
-                          </p>
+                          <span key={p.userName} className="pill bg-white/6 text-white/70">
+                            {p.userName} <span className="text-white/90 font-bold">{p.homeScore}–{p.awayScore}</span>
+                          </span>
                         ))}
                       </div>
                     )}
-                    {!reveal && (
-                      <p className="mt-3 text-sm text-white/40">Predictions hidden until all submit or kickoff.</p>
-                    )}
 
+                    {/* CTA */}
                     <a
-                      className="mt-4 inline-block rounded-full bg-flood px-5 py-2 font-bold text-pitch text-sm"
                       href={`/matches/${f.id}`}
+                      className={`btn ${isLocked ? 'btn-ghost' : 'btn-primary'} w-full py-3 text-sm`}
                     >
-                      {isLocked ? 'View match' : 'Place bet →'}
+                      {isLocked ? 'View match & scoring' : current ? `Place ${current}'s bet →` : 'View predictions →'}
                     </a>
                   </article>
                 );
               })}
             </div>
           )}
-        </div>
+        </section>
+
+        <footer className="text-center text-white/25 text-xs pt-2 pb-6">
+          Auto-syncs across all devices · ANJ Predictions
+        </footer>
       </section>
     </main>
   );

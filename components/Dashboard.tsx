@@ -103,7 +103,7 @@ export function Dashboard() {
       try {
         const response = await fetch('/api/predictions', { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to load shared predictions');
-        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string; resetAt: string | null };
+        const payload = await response.json() as { predictions: StoredPrediction[]; persistence: string; resetAt: string | null; env?: { configured: boolean } };
         if (!active) return;
 
         const remotePredictions = payload.predictions.map(revivePrediction);
@@ -119,7 +119,7 @@ export function Dashboard() {
           return;
         }
 
-        setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : 'Temporary server memory - configure Vercel KV for worldwide sync');
+        setSyncStatus(payload.persistence === 'redis' ? 'Synced globally' : payload.env?.configured === false ? 'Temporary server memory - KV env not visible to this deployment' : 'Temporary server memory - configure Vercel KV for worldwide sync');
       } catch {
         if (localBackup.predictions.length === 0) {
           setSyncStatus('Offline fallback only - shared store unavailable');

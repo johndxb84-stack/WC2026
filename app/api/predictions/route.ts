@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const storeKey = 'wc2026:predictions:v1';
 
 type StoredPrediction = {
@@ -77,6 +80,21 @@ function applyManualOverrides(predictions: StoredPrediction[]): StoredPrediction
   });
 }
 
+function redisEnvStatus() {
+  const hasKvUrl = Boolean(process.env.KV_REST_API_URL);
+  const hasKvToken = Boolean(process.env.KV_REST_API_TOKEN);
+  const hasUpstashUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL);
+  const hasUpstashToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+
+  return {
+    hasKvUrl,
+    hasKvToken,
+    hasUpstashUrl,
+    hasUpstashToken,
+    configured: (hasKvUrl && hasKvToken) || (hasUpstashUrl && hasUpstashToken),
+  };
+}
+
 function redisConfig() {
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -137,7 +155,13 @@ async function clearPredictions() {
 
 export async function GET() {
   const state = await readState();
-  return NextResponse.json({ ...state, predictions: applyManualOverrides(state.predictions), persistence: redisConfig() ? 'redis' : 'memory' });
+  const env = redisEnvStatus();
+  return NextResponse.json({
+    ...state,
+    predictions: applyManualOverrides(state.predictions),
+    persistence: redisConfig() ? 'redis' : 'memory',
+    env,
+  });
 }
 
 export async function POST(request: Request) {

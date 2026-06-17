@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { scorePrediction } from '@/lib/domain';
 
-const resultsStoreKey = 'wc2026:results:v1';
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const resultsStoreKey = 'wc2026:results:v1';
 
 type StoredPrediction = {
   fixtureId: string;

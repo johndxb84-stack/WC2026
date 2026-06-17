@@ -6,7 +6,7 @@ import { squads } from '@/lib/squads';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
-const POLL_MS = 30_000;
+const POLL_MS = 10_000;
 const PLAYERS = ['Nicolas', 'Jean', 'Anthony'] as const;
 
 const FLAG: Record<string, string> = {
@@ -88,7 +88,9 @@ export default function MatchPage() {
   useEffect(() => {
     load();
     const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   if (!data) {

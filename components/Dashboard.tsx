@@ -4,7 +4,7 @@ import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, referenceRotation
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
-const POLL_MS = 30_000;
+const POLL_MS = 10_000;
 
 const FLAG: Record<string, string> = {
   'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'United States': '🇺🇸', 'Canada': '🇨🇦',
@@ -59,6 +59,8 @@ function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [syncAge, setSyncAge] = useState(0);
 
   const load = () =>
     fetch('/api/predictions')
@@ -66,14 +68,25 @@ export function Dashboard() {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json() as Promise<DashboardData>;
       })
-      .then(d => { setData(d); setError(null); })
+      .then(d => { setData(d); setError(null); setLastSynced(new Date()); })
       .catch(() => setError('Failed to load data. Retrying…'));
 
   useEffect(() => {
     load();
     const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
+    // Refresh immediately when the tab becomes visible again (user switching devices/apps)
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
+
+  // Update "X seconds ago" label every second
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (lastSynced) setSyncAge(Math.floor((Date.now() - lastSynced.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [lastSynced]);
 
   if (error && !data) {
     return (
@@ -95,20 +108,37 @@ export function Dashboard() {
   const todayOrder = dailyOrder(now);
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
 
+  // Include today's Dubai matches PLUS early-morning next-Dubai-day matches that are
+  // still the same evening in the US (WC2026 last slot = ~10pm ET = ~06:00 Dubai next day)
+  const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
   const todayFixtures = data.fixtures.filter(f => {
     const kickoff = new Date(f.scheduledKickoff);
-    return dateKeyInTimezone(kickoff, TIMEZONE) === todayKey;
-  });
+    const kickoffKey = dateKeyInTimezone(kickoff, TIMEZONE);
+    if (kickoffKey === todayKey) return true;
+    if (kickoffKey === tomorrowKey) {
+      // Include early-morning next-Dubai-day games (before 10:00 Dubai = still US same day)
+      const kickoffHourDubai = (kickoff.getUTCHours() + 4) % 24;
+      return kickoffHourDubai < 10;
+    }
+    return false;
+  }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
   return (
     <main className="min-h-screen p-4 md:p-8">
       <section className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="glass rounded-3xl p-6 md:p-10">
-          <p className="text-flood uppercase tracking-[.35em] text-sm">FIFA World Cup 2026</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className="text-flood uppercase tracking-[.35em] text-sm">FIFA World Cup 2026</p>
+            <div className="flex items-center gap-2 text-xs text-white/50">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span>Live · synced {syncAge < 5 ? 'just now' : `${syncAge}s ago`}</span>
+              <button onClick={() => load()} className="ml-1 text-flood hover:text-white transition-colors">↻ Refresh</button>
+            </div>
+          </div>
           <h1 className="text-4xl md:text-7xl font-black mt-3">Prediction Arena</h1>
           <p className="mt-4 text-white/70">
-            Daily order rotates from {referenceRotationDate} in {TIMEZONE}. Today: {todayOrder.join(' → ')}.
+            Today&apos;s order: <span className="text-flood font-semibold">{todayOrder.join(' → ')}</span>
           </p>
           {error && <p className="mt-2 text-yellow-400 text-sm">{error}</p>}
         </div>
@@ -130,7 +160,7 @@ export function Dashboard() {
         {/* Today's matches */}
         <div>
           <p className="text-white/50 uppercase tracking-widest text-xs mb-3">
-            Today&apos;s matches — {todayKey}
+            Today&apos;s matches — {todayKey} Dubai (incl. early morning next day)
           </p>
           {todayFixtures.length === 0 ? (
             <div className="glass rounded-2xl p-6 text-center text-white/50">No matches scheduled today.</div>

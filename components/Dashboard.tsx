@@ -253,6 +253,33 @@ export function Dashboard() {
     await restoreBackup(readBackupFromStorage(previousPredictionsKey), 'No previous local backup found on this browser', 'Previous local backup restored to shared store');
   }
 
+
+  async function syncLatestFromServer() {
+    try {
+      setSyncStatus('Syncing latest shared bets...');
+      const response = await fetch('/api/predictions', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Could not sync shared bets');
+      const payload = await response.json() as { predictions?: StoredPrediction[]; persistence?: string; resetAt?: string | null; env?: { mode?: string } };
+      const remotePredictions = (payload.predictions ?? []).map(revivePrediction);
+
+      if (remotePredictions.length > 0) {
+        setPredictions(remotePredictions);
+        setResetAt(payload.resetAt ?? null);
+        window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: remotePredictions, resetAt: payload.resetAt ?? null }));
+      }
+
+      await refreshResults();
+      const mode = payload.env?.mode ? ` (${payload.env.mode})` : '';
+      setSyncStatus(payload.persistence === 'redis'
+        ? remotePredictions.length > 0
+          ? `Synced latest${mode} - ${remotePredictions.length} shared bets loaded`
+          : `Synced latest${mode} - no shared bets found`
+        : 'Synced latest from temporary server memory');
+    } catch {
+      setSyncStatus('Sync failed - could not load shared updates');
+    }
+  }
+
   async function downloadBackup() {
     try {
       const response = await fetch('/api/predictions', { cache: 'no-store' });
@@ -337,6 +364,7 @@ export function Dashboard() {
           <p className="mt-4 text-white/70">Daily order rotates from {model.referenceRotationDate} in {model.timezone}. Today: {model.order.join(' → ')}.</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="liquid-bubble rounded-full px-4 py-2 text-sm text-flood">{syncStatus}</p>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={syncLatestFromServer} type="button">Sync latest</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={downloadBackup} type="button">Download backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restoreLocalBackup} type="button">Restore local backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restorePreviousLocalBackup} type="button">Restore previous backup</button>

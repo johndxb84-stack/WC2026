@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+enum FixtureStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  POSTPONED
+}
+
+enum PredictionStatus {
+  WAITING
+  SUBMITTED
+  LOCKED
+  FORFEITED
+}
+
+enum Outcome {
+  HOME
+  AWAY
+  DRAW
+}
+
+enum PossessionPick {
+  HOME
+  AWAY
+  EQUAL
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  avatarUrl     String?
+  pinHash       String?
+  role          Role           @default(PLAYER)
+  active        Boolean        @default(true)
+  predictions   Prediction[]
+  notifications Notification[]
+  auditLogs     AuditLog[]     @relation("AdminAudit")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Competition {
+  id                    String    @id @default(cuid())
+  providerCompetitionId String?
+  name                  String
+  season                String
+  timezone              String    @default("Asia/Dubai")
+  active                Boolean   @default(false)
+  fixtures              Fixture[]
+}
+
+model Team {
+  id             String    @id @default(cuid())
+  providerTeamId String?
+  name           String
+  shortName      String?
+  logoUrl        String?
+  homeFixtures   Fixture[] @relation("HomeTeam")
+  awayFixtures   Fixture[] @relation("AwayTeam")
+  players        Player[]
+}
+
+model Player {
+  id               String  @id @default(cuid())
+  providerPlayerId String?
+  name             String
+  teamId           String?
+  photoUrl         String?
+  team             Team?   @relation(fields: [teamId], references: [id])
+}
+
+model Fixture {
+  id                 String        @id @default(cuid())
+  providerFixtureId  String?       @unique
+  competitionId      String
+  homeTeamId         String
+  awayTeamId         String
+  scheduledKickoff   DateTime
+  actualKickoff      DateTime?
+  stage              String?
+  venue              String?
+  status             FixtureStatus @default(SCHEDULED)
+  homeScore90        Int?
+  awayScore90        Int?
+  homeScoreExtraTime Int?
+  awayScoreExtraTime Int?
+  homePenaltyScore   Int?
+  awayPenaltyScore   Int?
+  firstGoalscorerId  String?
+  homePossession     Int?
+  awayPossession     Int?
+  settledAt          DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  competition        Competition   @relation(fields: [competitionId], references: [id])
+  homeTeam           Team          @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam           Team          @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  predictions        Prediction[]
+
+  @@index([scheduledKickoff])
+}
+
+model DailyTurnOrder {
+  id             String   @id @default(cuid())
+  date           DateTime
+  timezone       String
+  firstUserId    String
+  orderedUserIds String[]
+
+  @@unique([date, timezone])
+}
+
+model Prediction {
+  id                          String           @id @default(cuid())
+  fixtureId                   String
+  userId                      String
+  turnPosition                Int
+  submittedAt                 DateTime?
+  lockedAt                    DateTime?
+  forfeitedAt                 DateTime?
+  predictedHomeScore90        Int?
+  predictedAwayScore90        Int?
+  predictedOutcome            Outcome?
+  predictedPossessionWinner   PossessionPick?
+  predictedFirstGoalscorerId  String?
+  predictedHomeScoreExtraTime Int?
+  predictedAwayScoreExtraTime Int?
+  predictedHomePenaltyScore   Int?
+  predictedAwayPenaltyScore   Int?
+  status                      PredictionStatus @default(WAITING)
+  fixture                     Fixture          @relation(fields: [fixtureId], references: [id])
+  user                        User             @relation(fields: [userId], references: [id])
+  score                       PredictionScore?
+
+  @@unique([fixtureId, userId])
+  @@unique([fixtureId, predictedHomeScore90, predictedAwayScore90])
+  @@index([fixtureId, turnPosition])
+}
+
+model PredictionScore {
+  id                    String     @id @default(cuid())
+  predictionId          String     @unique
+  outcomePoints         Int        @default(0)
+  exactScorePoints      Int        @default(0)
+  possessionPoints      Int        @default(0)
+  firstGoalscorerPoints Int        @default(0)
+  extraTimePoints       Int        @default(0)
+  penaltyPoints         Int        @default(0)
+  totalPoints           Int        @default(0)
+  calculationVersion    Int        @default(1)
+  calculatedAt          DateTime   @default(now())
+  prediction            Prediction @relation(fields: [predictionId], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  administratorId String?
+  action          String
+  entityType      String
+  entityId        String?
+  previousValue   Json?
+  newValue        Json?
+  createdAt       DateTime @default(now())
+
+  administrator User? @relation("AdminAudit", fields: [administratorId], references: [id])
+}

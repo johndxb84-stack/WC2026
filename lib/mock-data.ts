@@ -1,0 +1,245 @@
+import { dailyOrder, referenceRotationDate, type PredictionRecord } from './domain';
+
+export const players = [
+  { id: 'nicolas', name: 'Nicolas', avatarUrl: '/avatars/nicolas.svg', totalPoints: 0 },
+  { id: 'jean', name: 'Jean', avatarUrl: '/avatars/jean.svg', totalPoints: 0 },
+  { id: 'anthony', name: 'Anthony', avatarUrl: '/avatars/anthony.svg', totalPoints: 0 },
+];
+
+const teamSquads: Record<string, string[]> = {
+  Spain: [
+    'Unai Simón', 'David Raya', 'Álex Remiro', 'Dani Carvajal', 'Pedro Porro', 'Robin Le Normand', 'Aymeric Laporte', 'Pau Cubarsí', 'Dani Vivian', 'Alejandro Grimaldo', 'Marc Cucurella', 'Rodri', 'Martín Zubimendi', 'Fabián Ruiz', 'Mikel Merino', 'Pedri', 'Gavi', 'Dani Olmo', 'Fermín López', 'Nico Williams', 'Lamine Yamal', 'Ferran Torres', 'Álvaro Morata', 'Mikel Oyarzabal', 'Joselu', 'Álex Baena',
+  ],
+  'Cabo Verde': [
+    'Vozinha', 'Márcio Rosa', 'Bruno Varela', 'Steven Moreira', 'Roberto Lopes', 'Logan Costa', 'Dylan Tavares', 'João Paulo Fernandes', 'Deroy Duarte', 'Patrick Andrade', 'Kevin Pina', 'Jamiro Monteiro', 'Larós Duarte', 'Bebé', 'Garry Rodrigues', 'Ryan Mendes', 'Jovane Cabral', 'Willy Semedo', 'Dailon Livramento', 'Hélio Varela', 'Gilson Tavares', 'Duk', 'Benchimol', 'Telmo Arcanjo', 'Cuca', 'Stopira',
+  ],
+  Belgium: [
+    'Thibaut Courtois', 'Koen Casteels', 'Matz Sels', 'Timothy Castagne', 'Thomas Meunier', 'Arthur Theate', 'Wout Faes', 'Jan Vertonghen', 'Zeno Debast', 'Aster Vranckx', 'Amadou Onana', 'Youri Tielemans', 'Orel Mangala', 'Kevin De Bruyne', 'Leandro Trossard', 'Jérémy Doku', 'Dodi Lukebakio', 'Yannick Carrasco', 'Charles De Ketelaere', 'Loïs Openda', 'Romelu Lukaku', 'Johan Bakayoko', 'Michy Batshuayi', 'Arthur Vermeeren', 'Alexis Saelemaekers', 'Malick Fofana',
+  ],
+  Egypt: [
+    'Mohamed El Shenawy', 'Mostafa Shobeir', 'Mohamed Awad', 'Mohamed Hani', 'Omar Kamal', 'Ahmed Hegazy', 'Mohamed Abdelmonem', 'Yasser Ibrahim', 'Ramy Rabia', 'Mohamed Hamdi', 'Ahmed Fatouh', 'Hamdi Fathy', 'Marwan Attia', 'Emam Ashour', 'Ahmed Sayed Zizo', 'Trézéguet', 'Omar Marmoush', 'Mohamed Salah', 'Mostafa Mohamed', 'Ibrahim Adel', 'Mostafa Fathi', 'Nasser Maher', 'Akram Tawfik', 'Mahmoud Saber', 'Mohamed Sherif', 'Ahmed Nabil Koka',
+  ],
+  'Saudi Arabia': [
+    'Mohammed Al-Owais', 'Nawaf Al-Aqidi', 'Ahmed Al-Kassar', 'Saud Abdulhamid', 'Sultan Al-Ghannam', 'Ali Al-Bulaihi', 'Hassan Tambakti', 'Abdulelah Al-Amri', 'Yasser Al-Shahrani', 'Mohammed Al-Breik', 'Abdulelah Al-Malki', 'Mohamed Kanno', 'Nasser Al-Dawsari', 'Abdullah Otayf', 'Sami Al-Najei', 'Salem Al-Dawsari', 'Fahad Al-Muwallad', 'Hattan Bahebri', 'Abdulrahman Ghareeb', 'Firas Al-Buraikan', 'Saleh Al-Shehri', 'Abdullah Al-Hamdan', 'Ayman Yahya', 'Musab Al-Juwayr', 'Ali Lajami', 'Faisal Al-Ghamdi',
+  ],
+  Uruguay: [
+    'Sergio Rochet', 'Fernando Muslera', 'Santiago Mele', 'José María Giménez', 'Ronald Araújo', 'Sebastián Cáceres', 'Mathías Olivera', 'Matías Viña', 'Guillermo Varela', 'Nahitan Nández', 'Manuel Ugarte', 'Federico Valverde', 'Rodrigo Bentancur', 'Giorgian De Arrascaeta', 'Nicolás De La Cruz', 'Facundo Pellistri', 'Brian Rodríguez', 'Maximiliano Araújo', 'Darwin Núñez', 'Luis Suárez', 'Edinson Cavani', 'Agustín Canobbio', 'Cristian Olivera', 'Matías Vecino', 'Lucas Torreira', 'Facundo Torres',
+  ],
+  'IR Iran': [
+    'Alireza Beiranvand', 'Payam Niazmand', 'Hossein Hosseini', 'Sadegh Moharrami', 'Ramin Rezaeian', 'Morteza Pouraliganji', 'Shoja Khalilzadeh', 'Hossein Kanaanizadegan', 'Majid Hosseini', 'Milad Mohammadi', 'Ehsan Hajsafi', 'Saeid Ezatolahi', 'Omid Ebrahimi', 'Ahmad Nourollahi', 'Ali Gholizadeh', 'Saman Ghoddos', 'Mehdi Torabi', 'Vahid Amiri', 'Mehdi Taremi', 'Sardar Azmoun', 'Karim Ansarifard', 'Shahriar Moghanlou', 'Allahyar Sayyadmanesh', 'Alireza Jahanbakhsh', 'Mohammad Mohebi', 'Yasin Salmani',
+  ],
+
+  France: [
+    'Mike Maignan', 'Brice Samba', 'Alphonse Areola', 'Jules Koundé', 'William Saliba', 'Ibrahima Konaté', 'Dayot Upamecano', 'Theo Hernández', 'Ferland Mendy', 'Aurélien Tchouaméni', 'Adrien Rabiot', 'Eduardo Camavinga', 'Warren Zaïre-Emery', 'Antoine Griezmann', 'Kylian Mbappé', 'Michael Olise', 'Ousmane Dembélé', 'Kingsley Coman', 'Marcus Thuram', 'Olivier Giroud', 'Randal Kolo Muani', 'Bradley Barcola', 'Christopher Nkunku', 'Moussa Diaby', 'Jonathan Clauss', 'Youssouf Fofana', 'Jean-Clair Todibo',
+  ],
+  Senegal: [
+    'Édouard Mendy', 'Seny Dieng', 'Mory Diaw', 'Kalidou Koulibaly', 'Abdou Diallo', 'Ismail Jakobs', 'Formose Mendy', 'Moussa Niakhaté', 'Pape Gueye', 'Pape Matar Sarr', 'Idrissa Gueye', 'Nampalys Mendy', 'Cheikhou Kouyaté', 'Pathé Ciss', 'Sadio Mané', 'Ismaïla Sarr', 'Iliman Ndiaye', 'Nicolas Jackson', 'Boulaye Dia', 'Habib Diallo', 'Krépin Diatta', 'Famara Diédhiou', 'Bamba Dieng', 'Lamine Camara', 'Kouadio Koné', 'Mikayil Faye',
+  ],
+  Iraq: [
+    'Jalal Hassan', 'Fahad Talib', 'Ahmed Basil', 'Mustafa Nadhim', 'Saad Natiq', 'Rebin Sulaka', 'Hussein Ali', 'Merchas Doski', 'Amir Al-Ammari', 'Osama Rashid', 'Ibrahim Bayesh', 'Bashar Resan', 'Zidane Iqbal', 'Ali Jasim', 'Youssef Amyn', 'Aymen Hussein', 'Mohanad Ali', 'Hussein Ali Al-Saedi', 'Frans Dhia Putros', 'Manaf Younis', 'Safaa Hadi', 'Danilo Al-Saed', 'Montader Madjed', 'Ahmed Farhan', 'Marko Farji', 'Ali Al-Hamadi',
+  ],
+  Norway: [
+    'Ørjan Nyland', 'Egil Selvik', 'Mathias Dyngeland', 'Julian Ryerson', 'Marcus Holmgren Pedersen', 'Leo Østigård', 'Kristoffer Ajer', 'Andreas Hanche-Olsen', 'David Møller Wolfe', 'Fredrik Aursnes', 'Sander Berge', 'Martin Ødegaard', 'Patrick Berg', 'Morten Thorsby', 'Oscar Bobb', 'Antonio Nusa', 'Alexander Sørloth', 'Erling Haaland', 'Jørgen Strand Larsen', 'Mohamed Elyounoussi', 'Hugo Vetlesen', 'Aron Dønnum', 'Ola Solbakken', 'Stian Gregersen', 'Mats Møller Dæhli', 'Kristian Thorstvedt',
+  ],
+  Argentina: [
+    'Emiliano Martínez', 'Franco Armani', 'Gerónimo Rulli', 'Nahuel Molina', 'Gonzalo Montiel', 'Cristian Romero', 'Nicolás Otamendi', 'Lisandro Martínez', 'Germán Pezzella', 'Nicolás Tagliafico', 'Marcos Acuña', 'Rodrigo De Paul', 'Leandro Paredes', 'Enzo Fernández', 'Alexis Mac Allister', 'Giovani Lo Celso', 'Exequiel Palacios', 'Lionel Messi', 'Ángel Di María', 'Julián Álvarez', 'Lautaro Martínez', 'Nicolás González', 'Paulo Dybala', 'Alejandro Garnacho', 'Thiago Almada', 'Valentín Carboni',
+  ],
+  Algeria: [
+    'Anthony Mandrea', 'Alexandre Oukidja', 'Rais Mbolhi', 'Ramy Bensebaini', 'Aïssa Mandi', 'Ahmed Touba', 'Youcef Atal', 'Rayan Aït-Nouri', 'Kevin Guitoun', 'Ismaël Bennacer', 'Houssem Aouar', 'Nabil Bentaleb', 'Sofiane Feghouli', 'Hicham Boudaoui', 'Riyad Mahrez', 'Youcef Belaïli', 'Saïd Benrahma', 'Adam Ounas', 'Amine Gouiri', 'Islam Slimani', 'Baghdad Bounedjah', 'Mohamed Amoura', 'Farès Chaïbi', 'Ramiz Zerrouki', 'Yasser Larouci', 'Jaouen Hadjam',
+  ],
+  Austria: [
+    'Patrick Pentz', 'Heinz Lindner', 'Alexander Schlager', 'Stefan Posch', 'Philipp Lienhart', 'Kevin Danso', 'Maximilian Wöber', 'David Alaba', 'Phillipp Mwene', 'Florian Grillitsch', 'Konrad Laimer', 'Xaver Schlager', 'Nicolas Seiwald', 'Marcel Sabitzer', 'Christoph Baumgartner', 'Michael Gregoritsch', 'Marko Arnautović', 'Sasa Kalajdzic', 'Patrick Wimmer', 'Romano Schmid', 'Andreas Weimann', 'Florian Kainz', 'Matthias Seidl', 'Gernot Trauner', 'Alexander Prass', 'Maximilian Entrup',
+  ],
+  Jordan: [
+    'Yazeed Abulaila', 'Abdallah Al-Fakhouri', 'Ahmad Al-Jaidi', 'Yazan Al-Arab', 'Abdallah Nasib', 'Salem Al-Ajalin', 'Mohammad Abu Hasheesh', 'Ihsan Haddad', 'Nizar Al-Rashdan', 'Noor Al-Rawabdeh', 'Rajaei Ayed', 'Ibrahim Sadeh', 'Mahmoud Mardi', 'Mousa Al-Taamari', 'Ali Olwan', 'Yazan Al-Naimat', 'Hamza Al-Dardour', 'Anas Al-Awadat', 'Fadi Awad', 'Saleh Rateb', 'Mohannad Abu Taha', 'Mohammad Afaneh', 'Bara Marei', 'Feras Shelbaieh', 'Mohammad Al-Dmeiri', 'Ehsan Haddad',
+  ],
+  Portugal: [
+    'Diogo Costa', 'José Sá', 'Rui Patrício', 'João Cancelo', 'Diogo Dalot', 'Nélson Semedo', 'Rúben Dias', 'António Silva', 'Gonçalo Inácio', 'Pepe', 'Nuno Mendes', 'Raphaël Guerreiro', 'João Palhinha', 'Rúben Neves', 'Vitinha', 'Bruno Fernandes', 'Bernardo Silva', 'João Félix', 'Rafael Leão', 'Pedro Neto', 'Francisco Conceição', 'Diogo Jota', 'Gonçalo Ramos', 'Cristiano Ronaldo', 'Matheus Nunes', 'Otávio',
+  ],
+  'DR Congo': [
+    'Lionel Mpasi', 'Dimitry Bertaud', 'Timothy Fayulu', 'Chancel Mbemba', 'Dylan Batubinsika', 'Henock Inonga', 'Rocky Bushiri', 'Arthur Masuaku', 'Gédéon Kalulu', 'Joris Kayembe', 'Samuel Moutoussamy', 'Charles Pickel', 'Edo Kayembe', 'Aaron Tshibola', 'Théo Bongonda', 'Gaël Kakuta', 'Yoane Wissa', 'Cédric Bakambu', 'Simon Banza', 'Silas Katompa Mvumpa', 'Meschack Elia', 'Fiston Mayele', 'Britt Assombalonga', 'Grady Diangana', 'Neeskens Kebano', 'Omenuke Mfulu',
+  ],
+  England: [
+    'Jordan Pickford', 'Aaron Ramsdale', 'Dean Henderson', 'Kyle Walker', 'Kieran Trippier', 'Reece James', 'John Stones', 'Marc Guéhi', 'Harry Maguire', 'Levi Colwill', 'Luke Shaw', 'Ben Chilwell', 'Declan Rice', 'Jude Bellingham', 'Phil Foden', 'Bukayo Saka', 'Cole Palmer', 'Trent Alexander-Arnold', 'James Maddison', 'Conor Gallagher', 'Kobbie Mainoo', 'Jack Grealish', 'Marcus Rashford', 'Ollie Watkins', 'Ivan Toney', 'Harry Kane',
+  ],
+  Croatia: [
+    'Dominik Livaković', 'Ivica Ivušić', 'Nediljko Labrović', 'Josip Stanišić', 'Josip Juranović', 'Joško Gvardiol', 'Martin Erlić', 'Josip Šutalo', 'Domagoj Vida', 'Borna Sosa', 'Marin Pongračić', 'Luka Modrić', 'Mateo Kovačić', 'Marcelo Brozović', 'Mario Pašalić', 'Lovro Majer', 'Nikola Vlašić', 'Luka Sučić', 'Martin Baturina', 'Andrej Kramarić', 'Bruno Petković', 'Ante Budimir', 'Ivan Perišić', 'Mislav Oršić', 'Marco Pašalić', 'Dion Drena Beljo',
+  ],
+  Ghana: [
+    'Lawrence Ati-Zigi', 'Richard Ofori', 'Jojo Wollacott', 'Alidu Seidu', 'Daniel Amartey', 'Mohammed Salisu', 'Alexander Djiku', 'Gideon Mensah', 'Denis Odoi', 'Tariq Lamptey', 'Salis Abdul Samed', 'Thomas Partey', 'Elisha Owusu', 'Majeed Ashimeru', 'Mohammed Kudus', 'André Ayew', 'Jordan Ayew', 'Osman Bukari', 'Kamaldeen Sulemana', 'Ernest Nuamah', 'Inaki Williams', 'Antoine Semenyo', 'Joseph Paintsil', 'Brandon Thomas-Asante', 'Daniel-Kofi Kyereh', 'Ransford-Yeboah Königsdörffer',
+  ],
+  Panama: [
+    'Orlando Mosquera', 'Luis Mejía', 'César Samudio', 'Michael Amir Murillo', 'Fidel Escobar', 'Andrés Andrade', 'José Córdoba', 'Roderick Miller', 'Eric Davis', 'César Blackman', 'Aníbal Godoy', 'Adalberto Carrasquilla', 'Cristian Martínez', 'Jovani Welch', 'Édgar Bárcenas', 'Yoel Bárcenas', 'José Luis Rodríguez', 'César Yanis', 'Ismael Díaz', 'José Fajardo', 'Cecilio Waterman', 'Freddy Góndola', 'Eduardo Guerrero', 'Alfredo Stephens', 'Abdiel Ayarza', 'Iván Anderson',
+  ],
+  Uzbekistan: [
+    'Utkir Yusupov', 'Abduvohid Nematov', 'Eldorbek Suyunov', 'Farrukh Sayfiev', 'Rustam Ashurmatov', 'Abdukodir Khusanov', 'Umar Eshmurodov', 'Husniddin Aliqulov', 'Sherzod Nasrullaev', 'Khojiakbar Alijonov', 'Otabek Shukurov', 'Odiljon Hamrobekov', 'Jaloliddin Masharipov', 'Dostonbek Khamdamov', 'Abboscbek Fayzullaev', 'Azizbek Turgunboev', 'Jamshid Iskanderov', 'Sardor Rashidov', 'Igor Sergeev', 'Eldor Shomurodov', 'Bobur Abdikholikov', 'Hojimat Erkinov', 'Khojimat Erkinov', 'Ibrokhimkhalil Yuldoshev', 'Azizbek Amonov', 'Jasurbek Jaloliddinov',
+  ],
+  Colombia: [
+    'Camilo Vargas', 'David Ospina', 'Álvaro Montero', 'Daniel Muñoz', 'Santiago Arias', 'Carlos Cuesta', 'Dávinson Sánchez', 'Yerry Mina', 'Jhon Lucumí', 'Johan Mojica', 'Deiver Machado', 'Jefferson Lerma', 'Richard Ríos', 'Kevin Castaño', 'Mateus Uribe', 'Jorge Carrascal', 'Juan Fernando Quintero', 'James Rodríguez', 'Luis Díaz', 'Jhon Arias', 'Yáser Asprilla', 'Jhon Durán', 'Rafael Santos Borré', 'Miguel Borja', 'Luis Sinisterra', 'Cucho Hernández',
+  ],
+  'New Zealand': [
+    'Max Crocombe', 'Michael Woud', 'Alex Paulsen', 'Liberato Cacace', 'Tim Payne', 'Tommy Smith', 'Nando Pijnaker', 'Michael Boxall', 'Bill Tuiloma', 'Winston Reid', 'Joe Bell', 'Marko Stamenic', 'Matthew Garbett', 'Clayton Lewis', 'Sarpreet Singh', 'Callum McCowatt', 'Elijah Just', 'Ben Waine', 'Chris Wood', 'Kosta Barbarouses', 'Marco Rojas', 'Alex Greive', 'Logan Rogerson', 'Francis de Vries', 'Dane Ingham', 'Eli Just',
+  ],
+};
+
+function matchSquads(homeTeam: string, awayTeam: string) {
+  return {
+    homeSquad: teamSquads[homeTeam] ?? [],
+    awaySquad: teamSquads[awayTeam] ?? [],
+    goalscorerOptions: [...(teamSquads[homeTeam] ?? []), ...(teamSquads[awayTeam] ?? [])],
+  };
+}
+
+export const fixtures = [
+  {
+    id: 'match-14',
+    homeTeam: 'Spain',
+    awayTeam: 'Cabo Verde',
+    homeLogo: '🇪🇸',
+    awayLogo: '🇨🇻',
+    kickoff: new Date('2026-06-15T20:00:00+04:00'),
+    venue: 'Atlanta Stadium',
+    stage: 'Group H',
+    status: 'SCHEDULED',
+    ...matchSquads('Spain', 'Cabo Verde'),
+  },
+  {
+    id: 'match-16',
+    homeTeam: 'Belgium',
+    awayTeam: 'Egypt',
+    homeLogo: '🇧🇪',
+    awayLogo: '🇪🇬',
+    kickoff: new Date('2026-06-16T02:00:00+04:00'),
+    venue: 'Seattle Stadium',
+    stage: 'Group G',
+    status: 'SCHEDULED',
+    ...matchSquads('Belgium', 'Egypt'),
+  },
+  {
+    id: 'match-13',
+    homeTeam: 'Saudi Arabia',
+    awayTeam: 'Uruguay',
+    homeLogo: '🇸🇦',
+    awayLogo: '🇺🇾',
+    kickoff: new Date('2026-06-16T02:00:00+04:00'),
+    venue: 'Miami Stadium',
+    stage: 'Group H',
+    status: 'SCHEDULED',
+    ...matchSquads('Saudi Arabia', 'Uruguay'),
+  },
+  {
+    id: 'match-15',
+    homeTeam: 'IR Iran',
+    awayTeam: 'New Zealand',
+    homeLogo: '🇮🇷',
+    awayLogo: '🇳🇿',
+    kickoff: new Date('2026-06-16T05:00:00+04:00'),
+    venue: 'Los Angeles Stadium',
+    stage: 'Group G',
+    status: 'SCHEDULED',
+    ...matchSquads('IR Iran', 'New Zealand'),
+  },
+  {
+    id: 'match-17',
+    homeTeam: 'France',
+    awayTeam: 'Senegal',
+    homeLogo: '🇫🇷',
+    awayLogo: '🇸🇳',
+    kickoff: new Date('2026-06-16T23:00:00+04:00'),
+    venue: 'New York New Jersey Stadium',
+    stage: 'Group I',
+    status: 'SCHEDULED',
+    ...matchSquads('France', 'Senegal'),
+  },
+  {
+    id: 'match-18',
+    homeTeam: 'Iraq',
+    awayTeam: 'Norway',
+    homeLogo: '🇮🇶',
+    awayLogo: '🇳🇴',
+    kickoff: new Date('2026-06-17T02:00:00+04:00'),
+    venue: 'Boston Stadium',
+    stage: 'Group I',
+    status: 'SCHEDULED',
+    ...matchSquads('Iraq', 'Norway'),
+  },
+  {
+    id: 'match-19',
+    homeTeam: 'Argentina',
+    awayTeam: 'Algeria',
+    homeLogo: '🇦🇷',
+    awayLogo: '🇩🇿',
+    kickoff: new Date('2026-06-17T05:00:00+04:00'),
+    venue: 'Kansas City Stadium',
+    stage: 'Group J',
+    status: 'SCHEDULED',
+    ...matchSquads('Argentina', 'Algeria'),
+  },
+  {
+    id: 'match-20',
+    homeTeam: 'Austria',
+    awayTeam: 'Jordan',
+    homeLogo: '🇦🇹',
+    awayLogo: '🇯🇴',
+    kickoff: new Date('2026-06-16T08:00:00+04:00'),
+    venue: 'San Francisco Bay Stadium',
+    stage: 'Group J',
+    status: 'SCHEDULED',
+    ...matchSquads('Austria', 'Jordan'),
+  },
+  {
+    id: 'match-21',
+    homeTeam: 'Portugal',
+    awayTeam: 'DR Congo',
+    homeLogo: '🇵🇹',
+    awayLogo: '🇨🇩',
+    kickoff: new Date('2026-06-17T21:00:00+04:00'),
+    venue: 'Houston Stadium',
+    stage: 'Group K',
+    status: 'SCHEDULED',
+    ...matchSquads('Portugal', 'DR Congo'),
+  },
+  {
+    id: 'match-22',
+    homeTeam: 'England',
+    awayTeam: 'Croatia',
+    homeLogo: '🏴',
+    awayLogo: '🇭🇷',
+    kickoff: new Date('2026-06-18T00:00:00+04:00'),
+    venue: 'Dallas Stadium',
+    stage: 'Group K',
+    status: 'SCHEDULED',
+    ...matchSquads('England', 'Croatia'),
+  },
+  {
+    id: 'match-23',
+    homeTeam: 'Ghana',
+    awayTeam: 'Panama',
+    homeLogo: '🇬🇭',
+    awayLogo: '🇵🇦',
+    kickoff: new Date('2026-06-18T03:00:00+04:00'),
+    venue: 'Toronto Stadium',
+    stage: 'Group L',
+    status: 'SCHEDULED',
+    ...matchSquads('Ghana', 'Panama'),
+  },
+  {
+    id: 'match-24',
+    homeTeam: 'Uzbekistan',
+    awayTeam: 'Colombia',
+    homeLogo: '🇺🇿',
+    awayLogo: '🇨🇴',
+    kickoff: new Date('2026-06-18T06:00:00+04:00'),
+    venue: 'Vancouver Stadium',
+    stage: 'Group L',
+    status: 'SCHEDULED',
+    ...matchSquads('Uzbekistan', 'Colombia'),
+  },
+];
+
+export const mockPredictions: Array<PredictionRecord & { fixtureId: string }> = [];
+
+export function dashboardModel(now = new Date()) {
+  const order = dailyOrder(now);
+  return { now, referenceRotationDate, timezone: 'Asia/Dubai', order, players, fixtures, predictions: mockPredictions };
+}

@@ -264,7 +264,14 @@ export function Dashboard() {
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={resetPredictions} type="button">Reset bets</button>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[.3em] text-mint">Leaderboard</p>
+            <h2 className="text-3xl font-black">Highest score on top</h2>
+          </div>
+          <p className="hidden rounded-full px-4 py-2 text-sm md:block liquid-bubble">Sorted by total points</p>
+        </div>
+        <div aria-label="Leaderboard sorted by total points" className="grid gap-4 md:grid-cols-3">
           {rankedPlayers.map((player, index) => (
             <div className="glass rounded-[1.75rem] p-5" key={player.name}>
               <div className="text-3xl">#{index + 1}</div>

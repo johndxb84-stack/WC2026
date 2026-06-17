@@ -80,6 +80,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncAge, setSyncAge] = useState(0);
+  const [showPast, setShowPast] = useState(true);
 
   const load = () =>
     fetch('/api/predictions')
@@ -138,6 +139,11 @@ export function Dashboard() {
     }
     return false;
   }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
+
+  const pastFixtures = data.fixtures.filter(f => {
+    const kickoffKey = dateKeyInTimezone(new Date(f.scheduledKickoff), TIMEZONE);
+    return kickoffKey < todayKey;
+  }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
@@ -335,6 +341,89 @@ export function Dashboard() {
             </div>
           )}
         </section>
+
+        {/* ---------- Past Results ---------- */}
+        {pastFixtures.length > 0 && (
+          <section className="animate-rise" style={{ animationDelay: '180ms' }}>
+            <button
+              onClick={() => setShowPast(v => !v)}
+              className="w-full flex items-center justify-between mb-3 px-1 group"
+            >
+              <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Past Results</h2>
+              <span className="flex items-center gap-2">
+                <span className="text-white/30 text-xs">{pastFixtures.length} matches</span>
+                <span className={`text-white/30 text-xs transition-transform duration-200 ${showPast ? 'rotate-180' : ''}`}>▲</span>
+              </span>
+            </button>
+
+            {showPast && (
+              <div className="grid md:grid-cols-2 gap-4 md:gap-5">
+                {pastFixtures.map(f => {
+                  const kickoff = new Date(f.scheduledKickoff);
+                  const preds = toDomainPreds(data.predictions, f.id);
+                  const result = data.results?.[f.id];
+
+                  return (
+                    <article key={f.id} className="glass rounded-3xl p-5 flex flex-col gap-4 opacity-90">
+                      {/* top row */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                        {result
+                          ? <span className="pill bg-gold/12 text-gold border border-gold/20">Final</span>
+                          : <span className="pill bg-white/8 text-white/50">No result yet</span>
+                        }
+                      </div>
+
+                      {/* teams + score */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 text-center">
+                          <div className="text-4xl md:text-5xl leading-none">{FLAG[f.homeTeam.name] ?? '⚽'}</div>
+                          <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
+                        </div>
+                        <div className="px-2 text-center">
+                          {result ? (
+                            <div className="text-2xl md:text-3xl font-black tabular-nums">
+                              {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
+                            </div>
+                          ) : (
+                            <div className="text-white/30 font-black text-lg">–</div>
+                          )}
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="text-4xl md:text-5xl leading-none">{FLAG[f.awayTeam.name] ?? '⚽'}</div>
+                          <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
+                        </div>
+                      </div>
+
+                      {/* predictions (always revealed for completed matches) */}
+                      {preds.length > 0 ? (
+                        <div className="glass-soft p-3">
+                          <p className="text-xs text-white/40 text-center mb-2 uppercase tracking-wide">Predictions</p>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {preds.map(p => (
+                              <span key={p.userName} className="pill bg-white/6 text-white/70">
+                                {p.userName} <span className="text-white/90 font-bold">{p.homeScore}–{p.awayScore}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-center text-xs text-white/30">No predictions placed</p>
+                      )}
+
+                      <a
+                        href={`/matches/${f.id}`}
+                        className="btn btn-ghost w-full py-3 text-sm"
+                      >
+                        View scoring breakdown →
+                      </a>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         <footer className="text-center text-white/25 text-xs pt-2 pb-6">
           Auto-syncs across all devices · ANJ Predictions

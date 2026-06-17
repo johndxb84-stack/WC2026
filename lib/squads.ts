@@ -120,7 +120,7 @@ export const squads: Record<string, string[]> = {
     'Trent Alexander-Arnold', 'Reece James', 'Kyle Walker', 'Ben White', 'John Stones', 'Marc Guéhi', 'Luke Shaw',
     'Declan Rice', 'Jude Bellingham', 'Phil Foden', 'Conor Gallagher', 'Adam Wharton',
     'Harry Kane', 'Bukayo Saka', 'Raheem Sterling', 'Marcus Rashford', 'Jack Grealish',
-    'Ollie Watkins', 'Jarrod Bowen', 'Anthony Gordon',
+    'Ollie Watkins', 'Jarrod Bowen', 'Anthony Gordon', 'Cole Palmer',
   ],
   'Croatia': [
     'Dominik Livaković', 'Ivica Ivušić', 'Nediljko Labrović',

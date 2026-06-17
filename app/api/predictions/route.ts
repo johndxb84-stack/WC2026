@@ -163,7 +163,7 @@ export async function GET() {
         id: p.id,
         name: p.name,
         avatarUrl: p.avatarUrl,
-        totalPoints: playerPoints[p.name] ?? 0,
+        totalPoints: (playerPoints[p.name] ?? 0) + (p.basePoints ?? 0),
       })),
       results,
       persistence,

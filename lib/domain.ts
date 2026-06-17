@@ -1,4 +1,4 @@
-export const defaultPlayerOrder = ['Nicolas', 'Jean', 'Anthony'] as const;
+export const defaultPlayerOrder = ['Anthony', 'Nicolas', 'Jean'] as const;
 export const referenceRotationDate = '2026-06-15';
 export type Outcome = 'HOME' | 'AWAY' | 'DRAW';
 export type PossessionPick = 'HOME' | 'AWAY' | 'EQUAL';
@@ -6,15 +6,11 @@ export type PredictionInput = { userName: string; homeScore: number; awayScore: 
 export type PredictionRecord = PredictionInput & { forfeited?: boolean };
 export type FixtureLike = { id: string; kickoff: Date; started?: boolean; homeScore90?: number; awayScore90?: number; homePossession?: number; awayPossession?: number; firstGoalscorerId?: string | null; homeScoreExtraTime?: number | null; awayScoreExtraTime?: number | null; homePenaltyScore?: number | null; awayPenaltyScore?: number | null; settled?: boolean };
 
-const dayMs = 24 * 60 * 60 * 1000;
 export function dateKeyInTimezone(date: Date, timeZone = 'Asia/Dubai') {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
-export function dailyOrder(date: Date, playerOrder = [...defaultPlayerOrder], timeZone = 'Asia/Dubai', referenceDate = referenceRotationDate) {
-  const key = dateKeyInTimezone(date, timeZone);
-  const elapsed = Math.floor((Date.parse(`${key}T00:00:00Z`) - Date.parse(`${referenceDate}T00:00:00Z`)) / dayMs);
-  const start = ((elapsed % playerOrder.length) + playerOrder.length) % playerOrder.length;
-  return [...playerOrder.slice(start), ...playerOrder.slice(0, start)];
+export function dailyOrder(_date?: Date, playerOrder = [...defaultPlayerOrder]) {
+  return [...playerOrder];
 }
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }
 export function isLocked(fixture: FixtureLike, now = new Date()) { return Boolean(fixture.started) || now >= fixture.kickoff; }

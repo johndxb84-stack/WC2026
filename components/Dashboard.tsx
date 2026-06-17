@@ -261,18 +261,30 @@ export function Dashboard() {
       if (!response.ok) throw new Error('Could not sync shared bets');
       const payload = await response.json() as { predictions?: StoredPrediction[]; persistence?: string; resetAt?: string | null; env?: { mode?: string } };
       const remotePredictions = (payload.predictions ?? []).map(revivePrediction);
+      const localBackup = readLocalBackup();
+      const remoteResetIsNewer = payload.resetAt && (!localBackup.resetAt || new Date(payload.resetAt).getTime() > new Date(localBackup.resetAt).getTime());
+      const localPredictions = remoteResetIsNewer ? [] : localBackup.predictions;
+      const mergedPredictions = mergePredictions(remotePredictions, localPredictions);
+      let uploadedLocalChanges = false;
 
-      if (remotePredictions.length > 0) {
-        setPredictions(remotePredictions);
-        setResetAt(payload.resetAt ?? null);
-        window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: remotePredictions, resetAt: payload.resetAt ?? null }));
+      if (mergedPredictions.length > remotePredictions.length) {
+        const saved = await saveAllPredictions(mergedPredictions);
+        uploadedLocalChanges = saved.persistence === 'redis';
+      }
+
+      if (mergedPredictions.length > 0) {
+        setPredictions(mergedPredictions);
+        setResetAt(payload.resetAt ?? localBackup.resetAt ?? null);
+        window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions: mergedPredictions, resetAt: payload.resetAt ?? localBackup.resetAt ?? null }));
       }
 
       await refreshResults();
       const mode = payload.env?.mode ? ` (${payload.env.mode})` : '';
       setSyncStatus(payload.persistence === 'redis'
-        ? remotePredictions.length > 0
-          ? `Synced latest${mode} - ${remotePredictions.length} shared bets loaded`
+        ? mergedPredictions.length > 0
+          ? uploadedLocalChanges
+            ? `Synced latest${mode} - ${mergedPredictions.length} shared bets uploaded and loaded`
+            : `Synced latest${mode} - ${mergedPredictions.length} shared bets loaded`
           : `Synced latest${mode} - no shared bets found`
         : 'Synced latest from temporary server memory');
     } catch {

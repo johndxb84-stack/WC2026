@@ -114,8 +114,8 @@ export function Dashboard() {
         setResetAt(payload.resetAt);
 
         if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
-          await saveAllPredictions(mergedPredictions);
-          setSyncStatus('Restored local backup to shared store');
+          const saved = await saveAllPredictions(mergedPredictions);
+          setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (local backup restored)' : 'Restored local backup to temporary server memory');
           return;
         }
 
@@ -178,6 +178,7 @@ export function Dashboard() {
       body: JSON.stringify({ predictions: nextPredictions }),
     });
     if (!response.ok) throw new Error('Could not restore predictions');
+    return await response.json() as { persistence?: string; resetAt?: string | null; predictions?: StoredPrediction[] };
   }
 
   async function restoreBackup(backup: PredictionBackup, emptyMessage: string, successMessage: string) {
@@ -188,9 +189,9 @@ export function Dashboard() {
 
     setPredictions(backup.predictions);
     setResetAt(backup.resetAt);
-    await saveAllPredictions(backup.predictions);
+    const saved = await saveAllPredictions(backup.predictions);
     window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
-    setSyncStatus(successMessage);
+    setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (backup restored)' : successMessage);
   }
 
   async function restoreLocalBackup() {

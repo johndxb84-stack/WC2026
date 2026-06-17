@@ -53,6 +53,30 @@ const teamSquads: Record<string, string[]> = {
   Jordan: [
     'Yazeed Abulaila', 'Abdallah Al-Fakhouri', 'Ahmad Al-Jaidi', 'Yazan Al-Arab', 'Abdallah Nasib', 'Salem Al-Ajalin', 'Mohammad Abu Hasheesh', 'Ihsan Haddad', 'Nizar Al-Rashdan', 'Noor Al-Rawabdeh', 'Rajaei Ayed', 'Ibrahim Sadeh', 'Mahmoud Mardi', 'Mousa Al-Taamari', 'Ali Olwan', 'Yazan Al-Naimat', 'Hamza Al-Dardour', 'Anas Al-Awadat', 'Fadi Awad', 'Saleh Rateb', 'Mohannad Abu Taha', 'Mohammad Afaneh', 'Bara Marei', 'Feras Shelbaieh', 'Mohammad Al-Dmeiri', 'Ehsan Haddad',
   ],
+  Portugal: [
+    'Diogo Costa', 'José Sá', 'Rui Patrício', 'João Cancelo', 'Diogo Dalot', 'Nélson Semedo', 'Rúben Dias', 'António Silva', 'Gonçalo Inácio', 'Pepe', 'Nuno Mendes', 'Raphaël Guerreiro', 'João Palhinha', 'Rúben Neves', 'Vitinha', 'Bruno Fernandes', 'Bernardo Silva', 'João Félix', 'Rafael Leão', 'Pedro Neto', 'Francisco Conceição', 'Diogo Jota', 'Gonçalo Ramos', 'Cristiano Ronaldo', 'Matheus Nunes', 'Otávio',
+  ],
+  'DR Congo': [
+    'Lionel Mpasi', 'Dimitry Bertaud', 'Timothy Fayulu', 'Chancel Mbemba', 'Dylan Batubinsika', 'Henock Inonga', 'Rocky Bushiri', 'Arthur Masuaku', 'Gédéon Kalulu', 'Joris Kayembe', 'Samuel Moutoussamy', 'Charles Pickel', 'Edo Kayembe', 'Aaron Tshibola', 'Théo Bongonda', 'Gaël Kakuta', 'Yoane Wissa', 'Cédric Bakambu', 'Simon Banza', 'Silas Katompa Mvumpa', 'Meschack Elia', 'Fiston Mayele', 'Britt Assombalonga', 'Grady Diangana', 'Neeskens Kebano', 'Omenuke Mfulu',
+  ],
+  England: [
+    'Jordan Pickford', 'Aaron Ramsdale', 'Dean Henderson', 'Kyle Walker', 'Kieran Trippier', 'Reece James', 'John Stones', 'Marc Guéhi', 'Harry Maguire', 'Levi Colwill', 'Luke Shaw', 'Ben Chilwell', 'Declan Rice', 'Jude Bellingham', 'Phil Foden', 'Bukayo Saka', 'Cole Palmer', 'Trent Alexander-Arnold', 'James Maddison', 'Conor Gallagher', 'Kobbie Mainoo', 'Jack Grealish', 'Marcus Rashford', 'Ollie Watkins', 'Ivan Toney', 'Harry Kane',
+  ],
+  Croatia: [
+    'Dominik Livaković', 'Ivica Ivušić', 'Nediljko Labrović', 'Josip Stanišić', 'Josip Juranović', 'Joško Gvardiol', 'Martin Erlić', 'Josip Šutalo', 'Domagoj Vida', 'Borna Sosa', 'Marin Pongračić', 'Luka Modrić', 'Mateo Kovačić', 'Marcelo Brozović', 'Mario Pašalić', 'Lovro Majer', 'Nikola Vlašić', 'Luka Sučić', 'Martin Baturina', 'Andrej Kramarić', 'Bruno Petković', 'Ante Budimir', 'Ivan Perišić', 'Mislav Oršić', 'Marco Pašalić', 'Dion Drena Beljo',
+  ],
+  Ghana: [
+    'Lawrence Ati-Zigi', 'Richard Ofori', 'Jojo Wollacott', 'Alidu Seidu', 'Daniel Amartey', 'Mohammed Salisu', 'Alexander Djiku', 'Gideon Mensah', 'Denis Odoi', 'Tariq Lamptey', 'Salis Abdul Samed', 'Thomas Partey', 'Elisha Owusu', 'Majeed Ashimeru', 'Mohammed Kudus', 'André Ayew', 'Jordan Ayew', 'Osman Bukari', 'Kamaldeen Sulemana', 'Ernest Nuamah', 'Inaki Williams', 'Antoine Semenyo', 'Joseph Paintsil', 'Brandon Thomas-Asante', 'Daniel-Kofi Kyereh', 'Ransford-Yeboah Königsdörffer',
+  ],
+  Panama: [
+    'Orlando Mosquera', 'Luis Mejía', 'César Samudio', 'Michael Amir Murillo', 'Fidel Escobar', 'Andrés Andrade', 'José Córdoba', 'Roderick Miller', 'Eric Davis', 'César Blackman', 'Aníbal Godoy', 'Adalberto Carrasquilla', 'Cristian Martínez', 'Jovani Welch', 'Édgar Bárcenas', 'Yoel Bárcenas', 'José Luis Rodríguez', 'César Yanis', 'Ismael Díaz', 'José Fajardo', 'Cecilio Waterman', 'Freddy Góndola', 'Eduardo Guerrero', 'Alfredo Stephens', 'Abdiel Ayarza', 'Iván Anderson',
+  ],
+  Uzbekistan: [
+    'Utkir Yusupov', 'Abduvohid Nematov', 'Eldorbek Suyunov', 'Farrukh Sayfiev', 'Rustam Ashurmatov', 'Abdukodir Khusanov', 'Umar Eshmurodov', 'Husniddin Aliqulov', 'Sherzod Nasrullaev', 'Khojiakbar Alijonov', 'Otabek Shukurov', 'Odiljon Hamrobekov', 'Jaloliddin Masharipov', 'Dostonbek Khamdamov', 'Abboscbek Fayzullaev', 'Azizbek Turgunboev', 'Jamshid Iskanderov', 'Sardor Rashidov', 'Igor Sergeev', 'Eldor Shomurodov', 'Bobur Abdikholikov', 'Hojimat Erkinov', 'Khojimat Erkinov', 'Ibrokhimkhalil Yuldoshev', 'Azizbek Amonov', 'Jasurbek Jaloliddinov',
+  ],
+  Colombia: [
+    'Camilo Vargas', 'David Ospina', 'Álvaro Montero', 'Daniel Muñoz', 'Santiago Arias', 'Carlos Cuesta', 'Dávinson Sánchez', 'Yerry Mina', 'Jhon Lucumí', 'Johan Mojica', 'Deiver Machado', 'Jefferson Lerma', 'Richard Ríos', 'Kevin Castaño', 'Mateus Uribe', 'Jorge Carrascal', 'Juan Fernando Quintero', 'James Rodríguez', 'Luis Díaz', 'Jhon Arias', 'Yáser Asprilla', 'Jhon Durán', 'Rafael Santos Borré', 'Miguel Borja', 'Luis Sinisterra', 'Cucho Hernández',
+  ],
   'New Zealand': [
     'Max Crocombe', 'Michael Woud', 'Alex Paulsen', 'Liberato Cacace', 'Tim Payne', 'Tommy Smith', 'Nando Pijnaker', 'Michael Boxall', 'Bill Tuiloma', 'Winston Reid', 'Joe Bell', 'Marko Stamenic', 'Matthew Garbett', 'Clayton Lewis', 'Sarpreet Singh', 'Callum McCowatt', 'Elijah Just', 'Ben Waine', 'Chris Wood', 'Kosta Barbarouses', 'Marco Rojas', 'Alex Greive', 'Logan Rogerson', 'Francis de Vries', 'Dane Ingham', 'Eli Just',
   ],
@@ -162,6 +186,54 @@ export const fixtures = [
     stage: 'Group J',
     status: 'SCHEDULED',
     ...matchSquads('Austria', 'Jordan'),
+  },
+  {
+    id: 'match-21',
+    homeTeam: 'Portugal',
+    awayTeam: 'DR Congo',
+    homeLogo: '🇵🇹',
+    awayLogo: '🇨🇩',
+    kickoff: new Date('2026-06-17T21:00:00+04:00'),
+    venue: 'Houston Stadium',
+    stage: 'Group K',
+    status: 'SCHEDULED',
+    ...matchSquads('Portugal', 'DR Congo'),
+  },
+  {
+    id: 'match-22',
+    homeTeam: 'England',
+    awayTeam: 'Croatia',
+    homeLogo: '🏴',
+    awayLogo: '🇭🇷',
+    kickoff: new Date('2026-06-18T00:00:00+04:00'),
+    venue: 'Dallas Stadium',
+    stage: 'Group K',
+    status: 'SCHEDULED',
+    ...matchSquads('England', 'Croatia'),
+  },
+  {
+    id: 'match-23',
+    homeTeam: 'Ghana',
+    awayTeam: 'Panama',
+    homeLogo: '🇬🇭',
+    awayLogo: '🇵🇦',
+    kickoff: new Date('2026-06-18T03:00:00+04:00'),
+    venue: 'Toronto Stadium',
+    stage: 'Group L',
+    status: 'SCHEDULED',
+    ...matchSquads('Ghana', 'Panama'),
+  },
+  {
+    id: 'match-24',
+    homeTeam: 'Uzbekistan',
+    awayTeam: 'Colombia',
+    homeLogo: '🇺🇿',
+    awayLogo: '🇨🇴',
+    kickoff: new Date('2026-06-18T06:00:00+04:00'),
+    venue: 'Vancouver Stadium',
+    stage: 'Group L',
+    status: 'SCHEDULED',
+    ...matchSquads('Uzbekistan', 'Colombia'),
   },
 ];
 

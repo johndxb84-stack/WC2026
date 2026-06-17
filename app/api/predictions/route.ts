@@ -118,6 +118,21 @@ async function writePredictions(predictions: StoredPrediction[]) {
   await writeState({ predictions, resetAt: current.resetAt });
 }
 
+
+function mergePredictionRecords(primary: StoredPrediction[], backup: StoredPrediction[]) {
+  const merged = new Map<string, StoredPrediction>();
+
+  for (const prediction of [...backup, ...primary]) {
+    const key = `${prediction.fixtureId}:${prediction.userName}`;
+    const existing = merged.get(key);
+    if (!existing || new Date(prediction.submittedAt).getTime() >= new Date(existing.submittedAt).getTime()) {
+      merged.set(key, prediction);
+    }
+  }
+
+  return [...merged.values()];
+}
+
 async function clearPredictions() {
   await writeState({ predictions: [], resetAt: new Date().toISOString() });
 }
@@ -152,18 +167,15 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const body = await request.json();
   const parsed = z.array(predictionSchema).parse(body.predictions ?? body);
-  const deduped: StoredPrediction[] = [];
+  const existing = await readPredictions();
 
-  for (const prediction of parsed) {
-    // Backup restore should preserve every user's saved bet. The live POST path still
-    // rejects duplicate scores, but restore must not silently drop historical records.
-    if (deduped.some((candidate) => candidate.fixtureId === prediction.fixtureId && candidate.userName === prediction.userName)) continue;
-    deduped.push(prediction);
-  }
+  // Backup restore / device push must never downgrade Redis by replacing a larger
+  // shared set with a smaller device-local set. Merge by user+fixture instead.
+  const merged = mergePredictionRecords(parsed, existing);
 
-  await writePredictions(deduped);
+  await writePredictions(merged);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: deduped, receivedCount: parsed.length, storedCount: deduped.length, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: merged, receivedCount: parsed.length, storedCount: merged.length, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }
 
 export async function DELETE() {

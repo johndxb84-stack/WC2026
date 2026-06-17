@@ -17,11 +17,26 @@ type RedisStatus = {
   hasRedisUrl: boolean;
   configured: boolean;
   mode: 'rest' | 'url' | 'none';
+  lastError: string | null;
 };
 
 type RestConfig = { mode: 'rest'; url: string; token: string };
 type UrlConfig = { mode: 'url'; url: string };
 type RedisConfig = RestConfig | UrlConfig;
+
+const redisRuntimeState = globalThis as typeof globalThis & { wc2026RedisLastError?: string | null };
+
+export function redisLastError() {
+  return redisRuntimeState.wc2026RedisLastError ?? null;
+}
+
+function rememberRedisError(error: unknown) {
+  redisRuntimeState.wc2026RedisLastError = error instanceof Error ? error.message : 'Unknown Redis error';
+}
+
+function clearRedisError() {
+  redisRuntimeState.wc2026RedisLastError = null;
+}
 
 function envValue(names: readonly string[]) {
   for (const name of names) {
@@ -76,6 +91,7 @@ export function redisEnvStatus(): RedisStatus {
     hasRedisUrl,
     configured: Boolean(config),
     mode: config?.mode ?? 'none',
+    lastError: redisLastError(),
   };
 }
 
@@ -167,19 +183,29 @@ export async function redisCommand<T>(command: unknown[]): Promise<T | null> {
   const config = redisConfig();
   if (!config) return null;
 
-  if (config.mode === 'url') return await redisUrlCommand<T>(config.url, command);
+  try {
+    if (config.mode === 'url') {
+      const result = await redisUrlCommand<T>(config.url, command);
+      clearRedisError();
+      return result;
+    }
 
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  });
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+    });
 
-  if (!response.ok) throw new Error(`Prediction store failed with ${response.status}`);
-  const payload = await response.json() as { result: T | null };
-  return payload.result;
+    if (!response.ok) throw new Error(`Redis REST store failed with ${response.status}`);
+    const payload = await response.json() as { result: T | null };
+    clearRedisError();
+    return payload.result;
+  } catch (error) {
+    rememberRedisError(error);
+    throw error;
+  }
 }

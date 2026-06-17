@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { redisCommand, redisEnvStatus, redisPersistenceConfigured } from '@/lib/redis-store';
+import { redisCommand, redisEnvStatus, redisLastError, redisPersistenceConfigured } from '@/lib/redis-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -91,14 +91,22 @@ function parseState(raw: string | null): PredictionState {
 }
 
 async function readState(): Promise<PredictionState> {
-  const remote = await redisCommand<string>(['GET', storeKey]);
-  return parseState(remote);
+  try {
+    const remote = await redisCommand<string>(['GET', storeKey]);
+    return parseState(remote);
+  } catch {
+    return parseState(null);
+  }
 }
 
 async function writeState(state: PredictionState) {
   const serialized = JSON.stringify(state);
-  const remote = await redisCommand<string>(['SET', storeKey, serialized]);
-  if (remote === null) memoryStore.wc2026PredictionState = state;
+  try {
+    const remote = await redisCommand<string>(['SET', storeKey, serialized]);
+    if (remote === null) memoryStore.wc2026PredictionState = state;
+  } catch {
+    memoryStore.wc2026PredictionState = state;
+  }
 }
 
 async function readPredictions(): Promise<StoredPrediction[]> {
@@ -120,7 +128,7 @@ export async function GET() {
   return NextResponse.json({
     ...state,
     predictions: applyManualOverrides(state.predictions),
-    persistence: redisPersistenceConfigured() ? 'redis' : 'memory',
+    persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory',
     env,
   });
 }
@@ -137,7 +145,7 @@ export async function POST(request: Request) {
   const predictions = [...withoutDuplicateUser, prediction];
   await writePredictions(predictions);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions, resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }
 
 
@@ -154,11 +162,11 @@ export async function PUT(request: Request) {
 
   await writePredictions(deduped);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }
 
 export async function DELETE() {
   await clearPredictions();
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: [], resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: [], resetAt: state.resetAt, persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }

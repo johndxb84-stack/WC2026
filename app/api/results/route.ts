@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { scorePrediction } from '@/lib/domain';
-import { redisCommand, redisPersistenceConfigured } from '@/lib/redis-store';
+import { redisCommand, redisLastError, redisPersistenceConfigured } from '@/lib/redis-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,14 +113,22 @@ function emptyState(): ResultsState {
 }
 
 async function readState(): Promise<ResultsState> {
-  const remote = await redisCommand<string>(['GET', resultsStoreKey]);
-  if (remote) return JSON.parse(remote) as ResultsState;
+  try {
+    const remote = await redisCommand<string>(['GET', resultsStoreKey]);
+    if (remote) return JSON.parse(remote) as ResultsState;
+  } catch {
+    // Fall back to temporary memory so the API stays online and can report the Redis problem.
+  }
   return memoryStore.wc2026ResultsState ?? emptyState();
 }
 
 async function writeState(state: ResultsState) {
-  const remote = await redisCommand<string>(['SET', resultsStoreKey, JSON.stringify(state)]);
-  if (remote === null) memoryStore.wc2026ResultsState = state;
+  try {
+    const remote = await redisCommand<string>(['SET', resultsStoreKey, JSON.stringify(state)]);
+    if (remote === null) memoryStore.wc2026ResultsState = state;
+  } catch {
+    memoryStore.wc2026ResultsState = state;
+  }
 }
 
 function leaderboard(scores: StoredScore[]) {
@@ -188,7 +196,7 @@ export async function GET(request: Request) {
   const predictions = await currentPredictions(new URL(request.url).origin);
   const effectiveState = applyManualResults(state, predictions);
   if (JSON.stringify(effectiveState) !== JSON.stringify(state)) await writeState(effectiveState);
-  return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
+  return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }
 
 export async function POST(request: Request) {
@@ -204,5 +212,5 @@ export async function POST(request: Request) {
   const nextState = { results, scores, updatedAt: new Date().toISOString() };
   await writeState(nextState);
 
-  return NextResponse.json({ ok: true, ...nextState, leaderboard: leaderboard(scores), persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, ...nextState, leaderboard: leaderboard(scores), persistence: redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory' });
 }

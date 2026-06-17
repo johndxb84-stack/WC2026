@@ -1,9 +1,9 @@
 import { dailyOrder, referenceRotationDate, type PredictionRecord } from './domain';
 
 export const players = [
-  { id: 'nicolas', name: 'Nicolas', avatarUrl: '/avatars/nicolas.svg', totalPoints: 0 },
-  { id: 'jean', name: 'Jean', avatarUrl: '/avatars/jean.svg', totalPoints: 0 },
-  { id: 'anthony', name: 'Anthony', avatarUrl: '/avatars/anthony.svg', totalPoints: 0 },
+  { id: 'anthony', name: 'Anthony', avatarUrl: '/avatars/anthony.svg', totalPoints: 0, basePoints: 14 },
+  { id: 'nicolas', name: 'Nicolas', avatarUrl: '/avatars/nicolas.svg', totalPoints: 0, basePoints: 13 },
+  { id: 'jean', name: 'Jean', avatarUrl: '/avatars/jean.svg', totalPoints: 0, basePoints: 17 },
 ];
 
 export const fixtures = [

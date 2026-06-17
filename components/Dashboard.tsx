@@ -264,7 +264,8 @@ export function Dashboard() {
       const localBackup = readLocalBackup();
       const remoteResetIsNewer = payload.resetAt && (!localBackup.resetAt || new Date(payload.resetAt).getTime() > new Date(localBackup.resetAt).getTime());
       const localPredictions = remoteResetIsNewer ? [] : localBackup.predictions;
-      const mergedPredictions = mergePredictions(remotePredictions, localPredictions);
+      const visibleAndLocalPredictions = mergePredictions(localPredictions, predictions);
+      const mergedPredictions = mergePredictions(remotePredictions, visibleAndLocalPredictions);
       let uploadedLocalChanges = false;
 
       if (mergedPredictions.length > remotePredictions.length) {
@@ -289,6 +290,24 @@ export function Dashboard() {
         : 'Synced latest from temporary server memory');
     } catch {
       setSyncStatus('Sync failed - could not load shared updates');
+    }
+  }
+
+
+  async function pushThisDeviceToRedis() {
+    if (predictions.length === 0) {
+      setSyncStatus('Nothing to push from this device');
+      return;
+    }
+
+    try {
+      setSyncStatus(`Pushing ${predictions.length} visible bets to Redis...`);
+      const saved = await saveAllPredictions(predictions);
+      window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions, resetAt }));
+      await refreshResults();
+      setSyncStatus(saved.persistence === 'redis' ? `Pushed this device - ${predictions.length} shared bets now in Redis` : 'Pushed this device to temporary server memory');
+    } catch {
+      setSyncStatus('Push failed - this device was not uploaded');
     }
   }
 
@@ -377,6 +396,7 @@ export function Dashboard() {
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="liquid-bubble rounded-full px-4 py-2 text-sm text-flood">{syncStatus}</p>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={syncLatestFromServer} type="button">Sync latest</button>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={pushThisDeviceToRedis} type="button">Push this device</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={downloadBackup} type="button">Download backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restoreLocalBackup} type="button">Restore local backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restorePreviousLocalBackup} type="button">Restore previous backup</button>

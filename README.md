@@ -35,7 +35,7 @@ For a real database, set `DATABASE_URL`, run `npx prisma migrate dev`, then seed
 
 ## Worldwide shared predictions
 
-The app persists submitted bets through `/api/predictions`. For real cross-device/cross-browser sync on Vercel, create a Vercel KV or Upstash Redis database and set `KV_REST_API_URL` plus `KV_REST_API_TOKEN` in Vercel environment variables. The API also accepts `KV_REST_REDIS_URL` plus `KV_REST_REDIS_TOKEN` when the Vercel integration is installed with a Redis-style custom prefix, or `UPSTASH_REDIS_REST_URL` plus `UPSTASH_REDIS_REST_TOKEN`.
+The app persists submitted bets through `/api/predictions`. For real cross-device/cross-browser sync on Vercel, create a Vercel KV, Upstash Redis, or Redis database and configure one supported connection option: `KV_REST_API_URL` plus `KV_REST_API_TOKEN`, `KV_REST_REDIS_URL` plus `KV_REST_REDIS_TOKEN`, `UPSTASH_REDIS_REST_URL` plus `UPSTASH_REDIS_REST_TOKEN`, or a direct `REDIS_URL` connection string.
 
 If these variables are not configured, the API falls back to temporary server memory, which is useful for local demos but is not durable across deployments or serverless cold starts.
 
@@ -60,7 +60,7 @@ Do not invent these values. Copy them from Vercel Storage/KV (or Upstash Redis):
 - `KV_REST_API_URL`: the REST API URL shown by Vercel KV/Upstash, usually an `https://...upstash.io` URL.
 - `KV_REST_API_TOKEN`: the REST API token/secret shown next to the REST URL.
 
-If your Vercel integration created `KV_REST_REDIS_URL` / `KV_REST_REDIS_TOKEN` instead, those names are also supported. The important part is that the deployed app must have a matching REST URL and REST token pair.
+If your Vercel integration created `KV_REST_REDIS_URL` / `KV_REST_REDIS_TOKEN` instead, those names are also supported. If your provider only gives a `redis://...` or `rediss://...` connection string, put the rotated full connection string in `REDIS_URL` instead. The important part is that the deployed app must have either a matching REST URL/token pair or a direct Redis URL.
 
 In Vercel, add them under **Project Settings → Environment Variables** for the same environment you deploy to. If you are testing a branch preview URL, add them to **Preview** too. After saving them, redeploy the site and verify the dashboard says **Synced globally**.
 

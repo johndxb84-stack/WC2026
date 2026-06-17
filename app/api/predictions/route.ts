@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { redisCommand, redisEnvStatus, redisPersistenceConfigured } from '@/lib/redis-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,52 +81,6 @@ function applyManualOverrides(predictions: StoredPrediction[]): StoredPrediction
   });
 }
 
-function redisEnvStatus() {
-  const hasKvApiUrl = Boolean(process.env.KV_REST_API_URL);
-  const hasKvApiToken = Boolean(process.env.KV_REST_API_TOKEN);
-  const hasKvRedisUrl = Boolean(process.env.KV_REST_REDIS_URL);
-  const hasKvRedisToken = Boolean(process.env.KV_REST_REDIS_TOKEN);
-  const hasUpstashUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL);
-  const hasUpstashToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
-
-  return {
-    hasKvUrl: hasKvApiUrl || hasKvRedisUrl,
-    hasKvToken: hasKvApiToken || hasKvRedisToken,
-    hasKvApiUrl,
-    hasKvApiToken,
-    hasKvRedisUrl,
-    hasKvRedisToken,
-    hasUpstashUrl,
-    hasUpstashToken,
-    configured: (hasKvApiUrl && hasKvApiToken) || (hasKvRedisUrl && hasKvRedisToken) || (hasUpstashUrl && hasUpstashToken),
-  };
-}
-
-function redisConfig() {
-  const url = process.env.KV_REST_API_URL ?? process.env.KV_REST_REDIS_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.KV_REST_REDIS_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? { url, token } : null;
-}
-
-async function redisCommand<T>(command: unknown[]): Promise<T | null> {
-  const config = redisConfig();
-  if (!config) return null;
-
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) throw new Error(`Prediction store failed with ${response.status}`);
-  const payload = await response.json() as { result: T | null };
-  return payload.result;
-}
-
 function parseState(raw: string | null): PredictionState {
   if (!raw) {
     return memoryStore.wc2026PredictionState ?? { predictions: memoryStore.wc2026Predictions ?? [], resetAt: null };
@@ -165,7 +120,7 @@ export async function GET() {
   return NextResponse.json({
     ...state,
     predictions: applyManualOverrides(state.predictions),
-    persistence: redisConfig() ? 'redis' : 'memory',
+    persistence: redisPersistenceConfigured() ? 'redis' : 'memory',
     env,
   });
 }
@@ -182,7 +137,7 @@ export async function POST(request: Request) {
   const predictions = [...withoutDuplicateUser, prediction];
   await writePredictions(predictions);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions, resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions, resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
 }
 
 
@@ -199,11 +154,11 @@ export async function PUT(request: Request) {
 
   await writePredictions(deduped);
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: deduped, resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
 }
 
 export async function DELETE() {
   await clearPredictions();
   const state = await readState();
-  return NextResponse.json({ ok: true, predictions: [], resetAt: state.resetAt, persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, predictions: [], resetAt: state.resetAt, persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
 }

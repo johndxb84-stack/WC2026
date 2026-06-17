@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { scorePrediction } from '@/lib/domain';
+import { redisCommand, redisPersistenceConfigured } from '@/lib/redis-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,28 +108,6 @@ const resultSchema = z.object({
 
 const memoryStore = globalThis as typeof globalThis & { wc2026ResultsState?: ResultsState };
 
-function redisConfig() {
-  const url = process.env.KV_REST_API_URL ?? process.env.KV_REST_REDIS_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.KV_REST_REDIS_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? { url, token } : null;
-}
-
-async function redisCommand<T>(command: unknown[]): Promise<T | null> {
-  const config = redisConfig();
-  if (!config) return null;
-
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) throw new Error(`Results store failed with ${response.status}`);
-  const payload = await response.json() as { result: T | null };
-  return payload.result;
-}
-
 function emptyState(): ResultsState {
   return { results: [], scores: [], updatedAt: null };
 }
@@ -209,7 +188,7 @@ export async function GET(request: Request) {
   const predictions = await currentPredictions(new URL(request.url).origin);
   const effectiveState = applyManualResults(state, predictions);
   if (JSON.stringify(effectiveState) !== JSON.stringify(state)) await writeState(effectiveState);
-  return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ...effectiveState, leaderboard: leaderboard(effectiveState.scores), persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
 }
 
 export async function POST(request: Request) {
@@ -225,5 +204,5 @@ export async function POST(request: Request) {
   const nextState = { results, scores, updatedAt: new Date().toISOString() };
   await writeState(nextState);
 
-  return NextResponse.json({ ok: true, ...nextState, leaderboard: leaderboard(scores), persistence: redisConfig() ? 'redis' : 'memory' });
+  return NextResponse.json({ ok: true, ...nextState, leaderboard: leaderboard(scores), persistence: redisPersistenceConfigured() ? 'redis' : 'memory' });
 }

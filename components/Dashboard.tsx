@@ -151,13 +151,16 @@ export function Dashboard() {
         if (!active) return;
 
         const remotePredictions = payload.predictions.map(revivePrediction);
+        const previousBackup = readBackupFromStorage(previousPredictionsKey);
         const remoteResetIsNewer = payload.resetAt && (!localBackup.resetAt || new Date(payload.resetAt).getTime() > new Date(localBackup.resetAt).getTime());
         const localPredictions = remoteResetIsNewer ? [] : localBackup.predictions;
-        const mergedPredictions = mergePredictions(remotePredictions, localPredictions);
+        const previousPredictions = remoteResetIsNewer ? [] : previousBackup.predictions;
+        const localAndPreviousPredictions = mergePredictions(localPredictions, previousPredictions);
+        const mergedPredictions = mergePredictions(remotePredictions, localAndPreviousPredictions);
         setPredictions(mergedPredictions);
         setResetAt(payload.resetAt);
 
-        if (!remoteResetIsNewer && localPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
+        if (!remoteResetIsNewer && localAndPreviousPredictions.length > 0 && mergedPredictions.length > remotePredictions.length) {
           const saved = await saveAllPredictions(mergedPredictions);
           await loadLeaderboard();
           setSyncStatus(saved.persistence === 'redis' ? `Synced globally (local backup restored) - sent ${saved.receivedCount ?? mergedPredictions.length}, stored ${saved.storedCount ?? saved.predictions?.length ?? mergedPredictions.length}` : 'Restored local backup to temporary server memory');

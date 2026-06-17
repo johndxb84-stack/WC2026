@@ -18,7 +18,7 @@ const FLAG: Record<string, string> = {
   'Ukraine': '🇺🇦', 'Romania': '🇷🇴', 'New Zealand': '🇳🇿',
   'Cabo Verde': '🇨🇻', 'Egypt': '🇪🇬', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
   'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴', 'DR Congo': '🇨🇩',
-  'Uzbekistan': '🇺🇿', 'Croatia': '🇭🇷',
+  'Uzbekistan': '🇺🇿',
 };
 
 type TeamInfo = { name: string; shortName: string | null; logoUrl: string | null };

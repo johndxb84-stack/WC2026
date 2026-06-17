@@ -187,11 +187,16 @@ export function Dashboard() {
       return;
     }
 
-    setPredictions(backup.predictions);
-    setResetAt(backup.resetAt);
-    const saved = await saveAllPredictions(backup.predictions);
-    window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
-    setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (backup restored)' : successMessage);
+    try {
+      setSyncStatus('Restoring backup...');
+      setPredictions(backup.predictions);
+      setResetAt(backup.resetAt);
+      const saved = await saveAllPredictions(backup.predictions);
+      window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
+      setSyncStatus(saved.persistence === 'redis' ? 'Synced globally (backup restored)' : successMessage);
+    } catch {
+      setSyncStatus('Restore failed - shared store did not accept backup');
+    }
   }
 
   async function restoreLocalBackup() {

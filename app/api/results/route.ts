@@ -108,8 +108,8 @@ const resultSchema = z.object({
 const memoryStore = globalThis as typeof globalThis & { wc2026ResultsState?: ResultsState };
 
 function redisConfig() {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.KV_REST_API_URL ?? process.env.KV_REST_REDIS_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.KV_REST_REDIS_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   return url && token ? { url, token } : null;
 }
 

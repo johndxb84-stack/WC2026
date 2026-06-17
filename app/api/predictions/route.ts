@@ -81,23 +81,29 @@ function applyManualOverrides(predictions: StoredPrediction[]): StoredPrediction
 }
 
 function redisEnvStatus() {
-  const hasKvUrl = Boolean(process.env.KV_REST_API_URL);
-  const hasKvToken = Boolean(process.env.KV_REST_API_TOKEN);
+  const hasKvApiUrl = Boolean(process.env.KV_REST_API_URL);
+  const hasKvApiToken = Boolean(process.env.KV_REST_API_TOKEN);
+  const hasKvRedisUrl = Boolean(process.env.KV_REST_REDIS_URL);
+  const hasKvRedisToken = Boolean(process.env.KV_REST_REDIS_TOKEN);
   const hasUpstashUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL);
   const hasUpstashToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
 
   return {
-    hasKvUrl,
-    hasKvToken,
+    hasKvUrl: hasKvApiUrl || hasKvRedisUrl,
+    hasKvToken: hasKvApiToken || hasKvRedisToken,
+    hasKvApiUrl,
+    hasKvApiToken,
+    hasKvRedisUrl,
+    hasKvRedisToken,
     hasUpstashUrl,
     hasUpstashToken,
-    configured: (hasKvUrl && hasKvToken) || (hasUpstashUrl && hasUpstashToken),
+    configured: (hasKvApiUrl && hasKvApiToken) || (hasKvRedisUrl && hasKvRedisToken) || (hasUpstashUrl && hasUpstashToken),
   };
 }
 
 function redisConfig() {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.KV_REST_API_URL ?? process.env.KV_REST_REDIS_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.KV_REST_REDIS_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   return url && token ? { url, token } : null;
 }
 

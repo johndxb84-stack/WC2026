@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       create: {
         fixtureId: fixture.id,
         userId: user.id,
-        turnPosition: order.indexOf(body.userName),
+        turnPosition: (order as string[]).indexOf(body.userName),
         predictedHomeScore90: body.homeScore,
         predictedAwayScore90: body.awayScore,
         submittedAt: new Date(),

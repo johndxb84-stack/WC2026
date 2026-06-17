@@ -1,9 +1,9 @@
 import net from 'node:net';
 import tls from 'node:tls';
 
-const restUrlVariables = ['KV_REST_API_URL', 'KV_REST_REDIS_URL', 'UPSTASH_REDIS_REST_URL'] as const;
-const restTokenVariables = ['KV_REST_API_TOKEN', 'KV_REST_REDIS_TOKEN', 'UPSTASH_REDIS_REST_TOKEN'] as const;
-const redisUrlVariables = ['REDIS_URL', 'KV_URL', 'KV_REST_REDIS_URL', 'KV_REST_API_URL'] as const;
+const restUrlVariables = ['KV_REST_API_REDIS_URL', 'KV_REST_API_URL', 'KV_REST_REDIS_URL', 'UPSTASH_REDIS_REST_URL'] as const;
+const restTokenVariables = ['KV_REST_API_REDIS_TOKEN', 'KV_REST_API_TOKEN', 'KV_REST_REDIS_TOKEN', 'UPSTASH_REDIS_REST_TOKEN'] as const;
+const redisUrlVariables = ['KV_REST_API_REDIS_URL', 'KV_URL', 'KV_REST_REDIS_URL', 'KV_REST_API_URL', 'REDIS_URL'] as const;
 
 type RedisStatus = {
   hasKvUrl: boolean;
@@ -70,20 +70,22 @@ export function redisPersistenceConfigured() {
 }
 
 export function redisEnvStatus(): RedisStatus {
+  const hasKvApiRedisUrl = Boolean(process.env.KV_REST_API_REDIS_URL);
+  const hasKvApiRedisToken = Boolean(process.env.KV_REST_API_REDIS_TOKEN);
   const hasKvApiUrl = Boolean(process.env.KV_REST_API_URL);
   const hasKvApiToken = Boolean(process.env.KV_REST_API_TOKEN);
   const hasKvRedisUrl = Boolean(process.env.KV_REST_REDIS_URL);
   const hasKvRedisToken = Boolean(process.env.KV_REST_REDIS_TOKEN);
   const hasUpstashUrl = Boolean(process.env.UPSTASH_REDIS_REST_URL);
   const hasUpstashToken = Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
-  const hasRedisUrl = Boolean(process.env.REDIS_URL || process.env.KV_URL || [process.env.KV_REST_REDIS_URL, process.env.KV_REST_API_URL].some(isRedisUrl));
+  const hasRedisUrl = Boolean(process.env.REDIS_URL || process.env.KV_URL || [process.env.KV_REST_API_REDIS_URL, process.env.KV_REST_REDIS_URL, process.env.KV_REST_API_URL].some(isRedisUrl));
   const config = redisConfig();
 
   return {
-    hasKvUrl: hasKvApiUrl || hasKvRedisUrl,
-    hasKvToken: hasKvApiToken || hasKvRedisToken,
-    hasKvApiUrl,
-    hasKvApiToken,
+    hasKvUrl: hasKvApiRedisUrl || hasKvApiUrl || hasKvRedisUrl,
+    hasKvToken: hasKvApiRedisToken || hasKvApiToken || hasKvRedisToken,
+    hasKvApiUrl: hasKvApiRedisUrl || hasKvApiUrl,
+    hasKvApiToken: hasKvApiRedisToken || hasKvApiToken,
     hasKvRedisUrl,
     hasKvRedisToken,
     hasUpstashUrl,

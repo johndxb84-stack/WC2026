@@ -6,6 +6,7 @@ import { dashboardModel } from '@/lib/mock-data';
 import { PredictionCard, type ExtendedPrediction } from './PredictionCard';
 
 const storedPredictionsKey = 'wc2026.predictions.v1';
+const previousPredictionsKey = 'wc2026.predictions.v1.previous';
 
 type StoredPrediction = ExtendedPrediction & { fixtureId: string };
 type PredictionBackup = { predictions: StoredPrediction[]; resetAt: string | null };
@@ -144,11 +145,16 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const existing = readBackupFromStorage(storedPredictionsKey);
+    if (predictions.length === 0 && existing.predictions.length > 0) {
+      window.localStorage.setItem(previousPredictionsKey, JSON.stringify(existing));
+    }
+
     window.localStorage.setItem(storedPredictionsKey, JSON.stringify({ predictions, resetAt }));
   }, [predictions, resetAt]);
 
-  function readLocalBackup(): PredictionBackup {
-    const stored = window.localStorage.getItem(storedPredictionsKey);
+  function readBackupFromStorage(key: string): PredictionBackup {
+    const stored = window.localStorage.getItem(key);
     if (!stored) return { predictions: [], resetAt: null };
 
     try {
@@ -161,6 +167,10 @@ export function Dashboard() {
   }
 
 
+  function readLocalBackup(): PredictionBackup {
+    return readBackupFromStorage(storedPredictionsKey);
+  }
+
   async function saveAllPredictions(nextPredictions: StoredPrediction[]) {
     const response = await fetch('/api/predictions', {
       method: 'PUT',
@@ -170,17 +180,25 @@ export function Dashboard() {
     if (!response.ok) throw new Error('Could not restore predictions');
   }
 
-  async function restoreLocalBackup() {
-    const localBackup = readLocalBackup();
-    if (localBackup.predictions.length === 0) {
-      setSyncStatus('No local backup found on this browser');
+  async function restoreBackup(backup: PredictionBackup, emptyMessage: string, successMessage: string) {
+    if (backup.predictions.length === 0) {
+      setSyncStatus(emptyMessage);
       return;
     }
 
-    setPredictions(localBackup.predictions);
-    setResetAt(localBackup.resetAt);
-    await saveAllPredictions(localBackup.predictions);
-    setSyncStatus('Local backup restored to shared store');
+    setPredictions(backup.predictions);
+    setResetAt(backup.resetAt);
+    await saveAllPredictions(backup.predictions);
+    window.localStorage.setItem(storedPredictionsKey, JSON.stringify(backup));
+    setSyncStatus(successMessage);
+  }
+
+  async function restoreLocalBackup() {
+    await restoreBackup(readLocalBackup(), 'No local backup found on this browser', 'Local backup restored to shared store');
+  }
+
+  async function restorePreviousLocalBackup() {
+    await restoreBackup(readBackupFromStorage(previousPredictionsKey), 'No previous local backup found on this browser', 'Previous local backup restored to shared store');
   }
 
   async function downloadBackup() {
@@ -204,6 +222,11 @@ export function Dashboard() {
   }
 
   async function resetPredictions() {
+    const existing = readLocalBackup();
+    if (existing.predictions.length > 0) {
+      window.localStorage.setItem(previousPredictionsKey, JSON.stringify(existing));
+    }
+
     setPredictions([]);
     window.localStorage.removeItem(storedPredictionsKey);
 
@@ -261,6 +284,7 @@ export function Dashboard() {
             <p className="liquid-bubble rounded-full px-4 py-2 text-sm text-flood">{syncStatus}</p>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={downloadBackup} type="button">Download backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restoreLocalBackup} type="button">Restore local backup</button>
+            <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={restorePreviousLocalBackup} type="button">Restore previous backup</button>
             <button className="liquid-bubble rounded-full px-4 py-2 text-sm font-bold text-white/90" onClick={resetPredictions} type="button">Reset bets</button>
           </div>
         </div>

@@ -133,7 +133,7 @@ export function Dashboard() {
                 </div>
                 <div className="rounded-2xl bg-black/25 p-4">
                   <p><b>Current turn:</b> <span className="text-gold">{current ?? 'All submitted'}</span></p>
-                  <p><b>Next player:</b> {fixtureOrder[fixtureOrder.indexOf(current ?? '') + 1] ?? '—'}</p>
+                  <p><b>Next player:</b> {(fixtureOrder as string[])[(fixtureOrder as string[]).indexOf(current ?? '') + 1] ?? '—'}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {fixtureOrder.map(name => {
                       const pred = preds.find(p => p.userName === name);

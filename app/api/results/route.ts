@@ -131,6 +131,19 @@ const manualResultOverrides: StoredResult[] = [
     awayPenaltyScore: null,
     confirmedAt: '2026-06-17T02:30:00.000Z',
   },
+  {
+    fixtureId: 'match-20',
+    homeScore90: 3,
+    awayScore90: 1,
+    homePossession: 58,
+    awayPossession: 42,
+    firstGoalscorerId: 'Romano Schmid',
+    homeScoreExtraTime: null,
+    awayScoreExtraTime: null,
+    homePenaltyScore: null,
+    awayPenaltyScore: null,
+    confirmedAt: '2026-06-17T08:30:00.000Z',
+  },
 ];
 const resultSchema = z.object({
   fixtureId: z.string(),

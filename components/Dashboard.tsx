@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { currentEligiblePlayer, shouldReveal, type PredictionRecord } from '@/lib/domain';
+import { currentEligiblePlayer, scorePrediction, shouldReveal, type PredictionRecord } from '@/lib/domain';
 import { dashboardModel } from '@/lib/mock-data';
 import { PredictionCard, type ExtendedPrediction } from './PredictionCard';
 
@@ -70,6 +70,41 @@ function possessionWinner(result: ResultRow | undefined, homeTeam: string, awayT
 function scoringReason(score?: ScoreRow) {
   if (!score) return 'Points pending until result is settled.';
   return `Outcome ${score.outcomePoints}/1, exact score ${score.exactScorePoints}/2, possession ${score.possessionPoints}/1, first scorer ${score.firstGoalscorerPoints}/1 = ${score.totalPoints} pts`;
+}
+
+function normalizedFirstGoalscorer(value?: string) {
+  if (value === 'NA' || value === undefined) return undefined;
+  if (value === 'NO_GOALSCORER') return null;
+  return value;
+}
+
+function calculateScoreRows(predictions: StoredPrediction[], results: ResultRow[]): ScoreRow[] {
+  return results.flatMap((result) => predictions.filter((prediction) => prediction.fixtureId === result.fixtureId).map((prediction) => ({
+    fixtureId: result.fixtureId,
+    userName: prediction.userName,
+    ...scorePrediction({
+      homeScore: Number(prediction.homeScore),
+      awayScore: Number(prediction.awayScore),
+      possession: prediction.possession === 'NA' ? undefined : prediction.possession,
+      firstGoalscorerId: normalizedFirstGoalscorer(prediction.firstGoalscorer),
+      homeScoreExtraTime: prediction.homeScoreExtraTime,
+      awayScoreExtraTime: prediction.awayScoreExtraTime,
+      homePenaltyScore: prediction.homePenaltyScore,
+      awayPenaltyScore: prediction.awayPenaltyScore,
+    }, { id: result.fixtureId, kickoff: new Date(), ...result }),
+  })));
+}
+
+function mergeScoreRows(apiScores: ScoreRow[], calculatedScores: ScoreRow[]) {
+  const merged = new Map<string, ScoreRow>();
+  for (const score of [...apiScores, ...calculatedScores]) merged.set(`${score.fixtureId}:${score.userName}`, score);
+  return [...merged.values()];
+}
+
+function leaderboardFromScores(scoreRows: ScoreRow[]) {
+  const totals = new Map<string, number>();
+  for (const score of scoreRows) totals.set(score.userName, (totals.get(score.userName) ?? 0) + score.totalPoints);
+  return totals;
 }
 
 export function Dashboard() {
@@ -278,10 +313,13 @@ export function Dashboard() {
     }
   }
 
+  const displayedScores = mergeScoreRows(scores, calculateScoreRows(predictions, results));
+  const calculatedLeaderboard = leaderboardFromScores(displayedScores);
+
   const rankedPlayers = model.players
     .map((player) => ({
       ...player,
-      totalPoints: leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints,
+      totalPoints: calculatedLeaderboard.get(player.name) ?? leaderboard.find((row) => row.userName === player.name)?.totalPoints ?? player.totalPoints,
     }))
     .sort((first, second) => second.totalPoints - first.totalPoints || first.name.localeCompare(second.name));
 
@@ -325,7 +363,7 @@ export function Dashboard() {
             const reveal = shouldReveal(model.order, fixturePredictions, { id: fixture.id, kickoff: fixture.kickoff });
             const predictionRecords = fixturePredictions;
             const result = results.find((candidate) => candidate.fixtureId === fixture.id);
-            const fixtureScores = scores.filter((score) => score.fixtureId === fixture.id);
+            const fixtureScores = displayedScores.filter((score) => score.fixtureId === fixture.id);
 
             const allSubmitted = model.order.every((name) => fixturePredictions.some((prediction) => prediction.userName === name));
 

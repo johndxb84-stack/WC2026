@@ -140,23 +140,20 @@ export function Dashboard() {
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
   const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
 
-  const todayFixtures = data.fixtures.filter(f => {
+  // All unsettled fixtures (no final result yet) sorted chronologically.
+  // Includes today, tomorrow, and all future match days so users can bet ahead.
+  const upcomingFixtures = data.fixtures.filter(f => {
+    if (data.results?.[f.id]) return false; // settled → goes to Past Results
     const kickoff = new Date(f.scheduledKickoff);
-    const kickoffKey = dateKeyInTimezone(kickoff, TIMEZONE);
-    if (kickoffKey === todayKey) return true;
-    if (kickoffKey === tomorrowKey) {
-      const kickoffHourDubai = (kickoff.getUTCHours() + 4) % 24;
-      return kickoffHourDubai < 10;
-    }
-    return false;
-  }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
+    // Keep in upcoming if not yet kicked off, or live within last 3h
+    return kickoff.getTime() > now.getTime() - 3 * 60 * 60 * 1000;
+  }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
   const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
   const pastFixtures = data.fixtures.filter(f => {
-    const kickoffKey = dateKeyInTimezone(new Date(f.scheduledKickoff), TIMEZONE);
-    if (kickoffKey >= todayKey) return false;
-    // Only show past games we actually engaged with (a bet or a recorded result),
-    // so auto-imported games nobody played don't flood the history.
+    // Show past games that are settled OR that we engaged with (bet placed)
+    const kickoff = new Date(f.scheduledKickoff);
+    if (kickoff.getTime() > now.getTime() - 3 * 60 * 60 * 1000) return false;
     return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
@@ -227,21 +224,21 @@ export function Dashboard() {
           </div>
         </section>
 
-        {/* ---------- Today's matches ---------- */}
+        {/* ---------- Upcoming matches ---------- */}
         <section className="animate-rise" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Today&apos;s Matches</h2>
-            <span className="text-white/30 text-xs">{todayFixtures.length} to bet</span>
+            <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Upcoming Matches</h2>
+            <span className="text-white/30 text-xs">{upcomingFixtures.length} to bet</span>
           </div>
 
-          {todayFixtures.length === 0 ? (
+          {upcomingFixtures.length === 0 ? (
             <div className="glass rounded-2xl p-10 text-center text-white/50">
-              <div className="text-4xl mb-2">🌙</div>
-              No matches today. Check back tomorrow!
+              <div className="text-4xl mb-2">🏆</div>
+              All matches settled. Tournament over!
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4 md:gap-5">
-              {todayFixtures.map(f => {
+              {upcomingFixtures.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
                 const fixtureOrder = orderForVenueDate(kickoff, f.venue);
                 const preds = toDomainPreds(data.predictions, f.id);

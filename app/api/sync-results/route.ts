@@ -11,6 +11,8 @@ import {
   isFinished,
   teamsMatch,
   matchScorer,
+  currentConfig,
+  searchLeagues,
   type ApiFootballFixture,
 } from '@/lib/football-api';
 
@@ -155,9 +157,32 @@ async function handle(force: boolean) {
   }
 }
 
+// Diagnostics: ?debug=1 shows what the provider returns so we can fix the
+// league/season mapping or spot team-name mismatches. No secrets are exposed.
+async function debugInfo() {
+  if (!footballApiConfigured()) return NextResponse.json({ ok: false, reason: 'API key not configured' });
+  const cfg = currentConfig();
+  const out: Record<string, unknown> = { config: cfg };
+  try {
+    const fixtures = await fetchSeasonFixtures();
+    out.seasonFixtureCount = fixtures.length;
+    out.sample = fixtures.slice(0, 25).map(f => `${f.teams.home.name} vs ${f.teams.away.name} [${f.fixture.status.short}]`);
+  } catch (err) {
+    out.fixturesError = err instanceof Error ? err.message : String(err);
+  }
+  try {
+    out.worldCupLeagues = await searchLeagues('world cup');
+  } catch (err) {
+    out.leaguesError = err instanceof Error ? err.message : String(err);
+  }
+  return NextResponse.json({ ok: true, debug: out });
+}
+
 // GET so it works from Vercel Cron and a browser; POST for the in-app trigger.
 export async function GET(request: Request) {
-  const force = new URL(request.url).searchParams.get('force') === '1';
+  const params = new URL(request.url).searchParams;
+  if (params.get('debug') === '1') return debugInfo();
+  const force = params.get('force') === '1';
   return handle(force);
 }
 export async function POST(request: Request) {

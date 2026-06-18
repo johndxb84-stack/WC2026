@@ -114,6 +114,19 @@ export async function fetchSeasonFixtures(): Promise<ApiFootballFixture[]> {
   return apiGet<ApiFootballFixture[]>(`/fixtures?league=${league}&season=${season}`);
 }
 
+export function currentConfig() {
+  const { league, season } = cfg();
+  return { league, season };
+}
+
+// Diagnostics: list leagues matching a search term, with their available seasons.
+export async function searchLeagues(term: string) {
+  const res = await apiGet<Array<{ league: { id: number; name: string; type: string }; seasons: Array<{ year: number }> }>>(
+    `/leagues?search=${encodeURIComponent(term)}`,
+  );
+  return res.map(r => ({ id: r.league.id, name: r.league.name, type: r.league.type, seasons: r.seasons.map(s => s.year) }));
+}
+
 // Possession percentages for a finished fixture, keyed by provider team name.
 export async function fetchPossession(fixtureId: number): Promise<{ home: number; away: number; homeName: string; awayName: string } | null> {
   const stats = await apiGet<ApiFootballStats[]>(`/fixtures/statistics?fixture=${fixtureId}`);

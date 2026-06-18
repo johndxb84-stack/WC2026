@@ -45,6 +45,22 @@ function liveLabel(s: LiveSnapshot) {
   return s.elapsed != null ? `${s.elapsed}'` : 'Live';
 }
 
+function computeQuickStats(data: DashboardData) {
+  const stats: Record<string, { settled: number; correct: number }> = {};
+  for (const pred of data.predictions) {
+    if (!pred.submittedAt) continue;
+    const result = data.results?.[pred.fixtureId];
+    if (!result) continue;
+    const name = pred.user.name;
+    if (!stats[name]) stats[name] = { settled: 0, correct: 0 };
+    stats[name].settled++;
+    const po = (pred.predictedHomeScore90 ?? 0) > (pred.predictedAwayScore90 ?? 0) ? 'H' : (pred.predictedHomeScore90 ?? 0) < (pred.predictedAwayScore90 ?? 0) ? 'A' : 'D';
+    const ro = result.homeScore90 > result.awayScore90 ? 'H' : result.homeScore90 < result.awayScore90 ? 'A' : 'D';
+    if (po === ro) stats[name].correct++;
+  }
+  return stats;
+}
+
 function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
   return predictions
     .filter(p => p.fixtureId === fixtureId && p.status !== 'WAITING' && p.submittedAt)
@@ -139,6 +155,7 @@ export function Dashboard() {
   const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
   const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
+  const quickStats = computeQuickStats(data);
 
   // All unsettled fixtures (no final result yet) sorted chronologically.
   // Includes today, tomorrow, and all future match days so users can bet ahead.
@@ -218,11 +235,31 @@ export function Dashboard() {
                   {i > 0 && behind > 0 && (
                     <p className="mt-1 text-[0.65rem] md:text-xs text-white/35">−{behind} behind</p>
                   )}
+                  <p className="mt-1.5 text-[0.65rem] text-white/40">
+                    {(() => {
+                      const s = quickStats[p.name];
+                      if (!s || s.settled === 0) return '0 bets';
+                      return `${s.settled} bets · ${Math.round(s.correct / s.settled * 100)}% accurate`;
+                    })()}
+                  </p>
                 </div>
               );
             })}
           </div>
         </section>
+
+        {/* ---------- Stats & History ---------- */}
+        <a
+          href="/stats"
+          className="glass rounded-2xl p-4 md:p-5 flex items-center justify-between hover:bg-white/8 transition-colors animate-rise"
+          style={{ animationDelay: '90ms' }}
+        >
+          <div>
+            <h2 className="font-bold text-base md:text-lg">📊 Stats &amp; History</h2>
+            <p className="text-sm text-white/50 mt-0.5">Accuracy, streaks and head-to-head breakdowns</p>
+          </div>
+          <span className="text-white/40 text-xl ml-4">→</span>
+        </a>
 
         {/* ---------- Upcoming matches ---------- */}
         <section className="animate-rise" style={{ animationDelay: '120ms' }}>
@@ -367,20 +404,24 @@ export function Dashboard() {
         </section>
 
         {/* ---------- Past Results ---------- */}
-        {pastFixtures.length > 0 && (
-          <section className="animate-rise" style={{ animationDelay: '180ms' }}>
-            <button
-              onClick={() => setShowPast(v => !v)}
-              className="w-full flex items-center justify-between mb-3 px-1 group"
-            >
-              <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Past Results</h2>
-              <span className="flex items-center gap-2">
-                <span className="text-white/30 text-xs">{pastFixtures.length} matches</span>
-                <span className={`text-white/30 text-xs transition-transform duration-200 ${showPast ? 'rotate-180' : ''}`}>▲</span>
-              </span>
-            </button>
+        <section className="animate-rise" style={{ animationDelay: '180ms' }}>
+          <button
+            onClick={() => setShowPast(v => !v)}
+            className="w-full flex items-center justify-between mb-3 px-1 group"
+          >
+            <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Past Results</h2>
+            <span className="flex items-center gap-2">
+              <span className="text-white/30 text-xs">{pastFixtures.length} matches</span>
+              <span className={`text-white/30 text-xs transition-transform duration-200 ${showPast ? 'rotate-180' : ''}`}>▲</span>
+            </span>
+          </button>
 
-            {showPast && (
+          {showPast && (
+            pastFixtures.length === 0 ? (
+              <div className="glass rounded-2xl p-6 text-center text-white/40 text-sm">
+                No completed matches yet — results will appear here once games are settled.
+              </div>
+            ) : (
               <div className="grid md:grid-cols-2 gap-4 md:gap-5">
                 {pastFixtures.map(f => {
                   const kickoff = new Date(f.scheduledKickoff);
@@ -448,9 +489,9 @@ export function Dashboard() {
                   );
                 })}
               </div>
-            )}
-          </section>
-        )}
+            )
+          )}
+        </section>
 
         <footer className="text-center text-white/25 text-xs pt-2 pb-6">
           Auto-syncs across all devices · ANJ Predictions

@@ -172,13 +172,18 @@ export function Dashboard() {
         <header className="glass rounded-3xl p-6 md:p-9 animate-rise">
           <div className="flex items-center justify-between gap-3">
             <p className="text-flood uppercase tracking-[.3em] text-xs font-semibold">World Cup 2026</p>
-            <button
-              onClick={() => load()}
-              className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors"
-            >
-              <span className="live-dot" />
-              {syncAge < 5 ? 'Live' : `synced ${syncAge}s ago`}
-            </button>
+            <div className="flex items-center gap-2">
+              <a href="/stats" className="pill bg-white/8 text-white/80 border border-white/12 hover:bg-white/15 transition-colors">
+                📊 Stats
+              </a>
+              <button
+                onClick={() => load()}
+                className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors"
+              >
+                <span className="live-dot" />
+                {syncAge < 5 ? 'Live' : `synced ${syncAge}s ago`}
+              </button>
+            </div>
           </div>
 
           <h1 className="mt-3 text-4xl md:text-6xl font-black tracking-tight">

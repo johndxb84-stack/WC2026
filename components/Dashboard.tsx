@@ -138,7 +138,7 @@ export function Dashboard() {
       return kickoffHourDubai < 10;
     }
     return false;
-  }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
+  }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
   const pastFixtures = data.fixtures.filter(f => {
     const kickoffKey = dateKeyInTimezone(new Date(f.scheduledKickoff), TIMEZONE);

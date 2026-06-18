@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#060e1a',
+  themeColor: '#080412',
   width: 'device-width',
   initialScale: 1,
 };
@@ -18,7 +18,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        <div className="blobs" aria-hidden="true">
+          <div className="blob blob-lavender" />
+          <div className="blob blob-peach" />
+          <div className="blob blob-mint" />
+          <div className="blob blob-amber" />
+        </div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

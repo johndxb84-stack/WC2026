@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { fixtures as mockFixtures, players as mockPlayers } from '@/lib/mock-data';
 import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/redis-store';
 import { readResults } from '@/lib/results-store';
+import { readLive } from '@/lib/live-store';
+import { readFixtures } from '@/lib/fixtures-store';
 import { scorePrediction } from '@/lib/domain';
 
 export const runtime = 'nodejs';
@@ -91,6 +93,7 @@ function toApiFixture(f: (typeof mockFixtures)[number]) {
     scheduledKickoff: f.kickoff.toISOString(),
     venue: f.venue,
     status: f.status,
+    playerOrder: f.playerOrder ?? null,
     homeTeam: { name: f.homeTeam, shortName: null, logoUrl: null },
     awayTeam: { name: f.awayTeam, shortName: null, logoUrl: null },
   };
@@ -153,11 +156,20 @@ function computePlayerPoints(
 
 export async function GET() {
   try {
-    const [state, results] = await Promise.all([readState(), readResults()]);
+    const [state, results, live, imported] = await Promise.all([readState(), readResults(), readLive(), readFixtures()]);
     const persistence = redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory';
     const playerPoints = computePlayerPoints(state.predictions, results);
+    const importedApi = Object.values(imported).map((f) => ({
+      id: f.id,
+      scheduledKickoff: f.kickoff,
+      venue: f.venue,
+      status: f.status,
+      playerOrder: null,
+      homeTeam: { name: f.homeTeam, shortName: null, logoUrl: null },
+      awayTeam: { name: f.awayTeam, shortName: null, logoUrl: null },
+    }));
     return NextResponse.json({
-      fixtures: mockFixtures.map(toApiFixture),
+      fixtures: [...mockFixtures.map(toApiFixture), ...importedApi],
       predictions: state.predictions.map(toApiPrediction),
       players: mockPlayers.map((p) => ({
         id: p.id,
@@ -166,6 +178,7 @@ export async function GET() {
         totalPoints: (playerPoints[p.name] ?? 0) + (p.basePoints ?? 0),
       })),
       results,
+      live,
       persistence,
     });
   } catch (err) {

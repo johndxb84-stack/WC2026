@@ -6,7 +6,20 @@ export const players = [
   { id: 'jean', name: 'Jean', avatarUrl: '/avatars/jean.svg', totalPoints: 0, basePoints: 17 },
 ];
 
-export const fixtures = [
+type Fixture = {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeLogo: string;
+  awayLogo: string;
+  kickoff: Date;
+  venue: string;
+  stage: string;
+  status: string;
+  playerOrder?: string[];
+};
+
+export const fixtures: Fixture[] = [
   { id: 'match-14', homeTeam: 'Spain', awayTeam: 'Cabo Verde', homeLogo: '🇪🇸', awayLogo: '🇨🇻', kickoff: new Date('2026-06-15T20:00:00+04:00'), venue: 'Atlanta Stadium', stage: 'Group H', status: 'SCHEDULED' },
   { id: 'match-16', homeTeam: 'Belgium', awayTeam: 'Egypt', homeLogo: '🇧🇪', awayLogo: '🇪🇬', kickoff: new Date('2026-06-16T02:00:00+04:00'), venue: 'Seattle Stadium', stage: 'Group G', status: 'SCHEDULED' },
   { id: 'match-13', homeTeam: 'Saudi Arabia', awayTeam: 'Uruguay', homeLogo: '🇸🇦', awayLogo: '🇺🇾', kickoff: new Date('2026-06-16T02:00:00+04:00'), venue: 'Miami Stadium', stage: 'Group H', status: 'SCHEDULED' },

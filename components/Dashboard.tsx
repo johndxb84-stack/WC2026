@@ -3,27 +3,18 @@ import { useEffect, useState } from 'react';
 import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, shouldReveal } from '@/lib/domain';
 import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
+import type { LiveSnapshot } from '@/lib/live-store';
 
 const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
 
-const FLAG: Record<string, string> = {
-  'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'United States': '🇺🇸', 'Canada': '🇨🇦',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'France': '🇫🇷', 'Germany': '🇩🇪',
-  'Spain': '🇪🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Portugal': '🇵🇹', 'Netherlands': '🇳🇱',
-  'Morocco': '🇲🇦', 'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'Australia': '🇦🇺',
-  'Saudi Arabia': '🇸🇦', 'Senegal': '🇸🇳', 'Ghana': '🇬🇭', 'Nigeria': '🇳🇬',
-  'Ecuador': '🇪🇨', 'Uruguay': '🇺🇾', 'Colombia': '🇨🇴', 'Chile': '🇨🇱',
-  'Costa Rica': '🇨🇷', 'Honduras': '🇭🇳', 'Panama': '🇵🇦', 'Qatar': '🇶🇦',
-  'Iran': '🇮🇷', 'IR Iran': '🇮🇷', 'Turkey': '🇹🇷', 'Poland': '🇵🇱', 'Switzerland': '🇨🇭',
-  'Belgium': '🇧🇪', 'Denmark': '🇩🇰', 'Croatia': '🇭🇷', 'Serbia': '🇷🇸',
-  'Ukraine': '🇺🇦', 'Romania': '🇷🇴', 'New Zealand': '🇳🇿',
-  'Cabo Verde': '🇨🇻', 'Egypt': '🇪🇬', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
-  'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴', 'DR Congo': '🇨🇩',
-  'Uzbekistan': '🇺🇿',
-};
-
 const MEDAL = ['🥇', '🥈', '🥉'];
+
+function SourceBadge({ source }: { source?: 'manual' | 'auto' }) {
+  return source === 'auto'
+    ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto</span>
+    : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>;
+}
 
 type TeamInfo = { name: string; shortName: string | null; logoUrl: string | null };
 type ApiFixture = {
@@ -31,6 +22,7 @@ type ApiFixture = {
   scheduledKickoff: string;
   venue: string | null;
   status: string;
+  playerOrder: string[] | null;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
 };
@@ -45,7 +37,13 @@ type ApiPrediction = {
   score: { totalPoints: number } | null;
 };
 type ApiPlayer = { id: string; name: string; avatarUrl: string | null; totalPoints: number };
-type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult> };
+type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult>; live?: Record<string, LiveSnapshot> };
+
+const LIVE_LABEL: Record<string, string> = { HT: 'Half-time', P: 'Penalties', BT: 'Break', ET: 'Extra time' };
+function liveLabel(s: LiveSnapshot) {
+  if (LIVE_LABEL[s.status]) return LIVE_LABEL[s.status];
+  return s.elapsed != null ? `${s.elapsed}'` : 'Live';
+}
 
 function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
   return predictions
@@ -81,6 +79,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncAge, setSyncAge] = useState(0);
+  const [showPast, setShowPast] = useState(true);
 
   const load = () =>
     fetch('/api/predictions')
@@ -105,6 +104,19 @@ export function Dashboard() {
     }, 1000);
     return () => clearInterval(t);
   }, [lastSynced]);
+
+  // Nudge the server to pull fresh results from the football API while anyone
+  // is viewing. The endpoint self-throttles, so extra viewers cost nothing.
+  useEffect(() => {
+    const sync = () =>
+      fetch('/api/sync-results', { method: 'POST' })
+        .then(r => r.json())
+        .then(j => { if (j?.written > 0) load(); })
+        .catch(() => {});
+    sync();
+    const timer = setInterval(sync, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (error && !data) {
     return (
@@ -137,7 +149,16 @@ export function Dashboard() {
       return kickoffHourDubai < 10;
     }
     return false;
-  }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
+  }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
+
+  const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
+  const pastFixtures = data.fixtures.filter(f => {
+    const kickoffKey = dateKeyInTimezone(new Date(f.scheduledKickoff), TIMEZONE);
+    if (kickoffKey >= todayKey) return false;
+    // Only show past games we actually engaged with (a bet or a recorded result),
+    // so auto-imported games nobody played don't flood the history.
+    return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
+  }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
@@ -147,19 +168,27 @@ export function Dashboard() {
         <header className="glass rounded-3xl p-6 md:p-9 animate-rise">
           <div className="flex items-center justify-between gap-3">
             <p className="text-flood uppercase tracking-[.3em] text-xs font-semibold">World Cup 2026</p>
-            <button
-              onClick={() => load()}
-              className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors"
-            >
-              <span className="live-dot" />
-              {syncAge < 5 ? 'Live' : `synced ${syncAge}s ago`}
-            </button>
+            <div className="flex items-center gap-2">
+              <a href="/stats" className="pill bg-white/8 text-white/80 border border-white/12 hover:bg-white/15 transition-colors">
+                📊 Stats
+              </a>
+              <button
+                onClick={() => load()}
+                className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors"
+              >
+                <span className="live-dot" />
+                {syncAge < 5 ? 'Live' : `synced ${syncAge}s ago`}
+              </button>
+            </div>
           </div>
 
           <h1 className="mt-3 text-4xl md:text-6xl font-black tracking-tight">
             Prediction Arena
           </h1>
 
+          <p className="mt-3 text-sm text-white/50">
+            Each match shows its own betting order — bet in turn, top to bottom.
+          </p>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
         </header>
 
@@ -220,12 +249,15 @@ export function Dashboard() {
                 const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);
                 const isLocked = now >= kickoff;
                 const result = data.results?.[f.id];
+                const live = !result ? data.live?.[f.id] : undefined;
                 const cd = countdown(kickoff, now);
                 const betCount = preds.length;
 
                 let statusPill;
                 if (result) {
                   statusPill = <span className="pill bg-gold/12 text-gold border border-gold/20">Result in</span>;
+                } else if (live) {
+                  statusPill = <span className="pill bg-rose/15 text-rose border border-rose/25"><span className="live-dot-red" />{liveLabel(live)}</span>;
                 } else if (isLocked) {
                   statusPill = <span className="pill bg-rose/12 text-rose border border-rose/20">Closed</span>;
                 } else {
@@ -237,13 +269,16 @@ export function Dashboard() {
                     {/* top row */}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-white/40">{f.venue}</span>
-                      {statusPill}
+                      <div className="flex items-center gap-1.5">
+                        {result && <SourceBadge source={result.source} />}
+                        {statusPill}
+                      </div>
                     </div>
 
                     {/* teams */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.homeTeam.name] ?? '⚽'}</div>
+                        <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                       </div>
                       <div className="px-2 text-center">
@@ -251,12 +286,21 @@ export function Dashboard() {
                           <div className="text-2xl md:text-3xl font-black tabular-nums">
                             {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
                           </div>
+                        ) : live ? (
+                          <div>
+                            <div className="text-2xl md:text-3xl font-black tabular-nums text-rose">
+                              {live.homeGoals}<span className="text-rose/40 mx-1">–</span>{live.awayGoals}
+                            </div>
+                            <div className="text-[0.6rem] text-rose/80 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                              <span className="live-dot-red" />{liveLabel(live)}
+                            </div>
+                          </div>
                         ) : (
                           <div className="text-white/30 font-black text-lg">VS</div>
                         )}
                       </div>
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.awayTeam.name] ?? '⚽'}</div>
+                        <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
                       </div>
                     </div>
@@ -324,6 +368,92 @@ export function Dashboard() {
             </div>
           )}
         </section>
+
+        {/* ---------- Past Results ---------- */}
+        {pastFixtures.length > 0 && (
+          <section className="animate-rise" style={{ animationDelay: '180ms' }}>
+            <button
+              onClick={() => setShowPast(v => !v)}
+              className="w-full flex items-center justify-between mb-3 px-1 group"
+            >
+              <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Past Results</h2>
+              <span className="flex items-center gap-2">
+                <span className="text-white/30 text-xs">{pastFixtures.length} matches</span>
+                <span className={`text-white/30 text-xs transition-transform duration-200 ${showPast ? 'rotate-180' : ''}`}>▲</span>
+              </span>
+            </button>
+
+            {showPast && (
+              <div className="grid md:grid-cols-2 gap-4 md:gap-5">
+                {pastFixtures.map(f => {
+                  const kickoff = new Date(f.scheduledKickoff);
+                  const preds = toDomainPreds(data.predictions, f.id);
+                  const result = data.results?.[f.id];
+
+                  return (
+                    <article key={f.id} className="glass rounded-3xl p-5 flex flex-col gap-4 opacity-90">
+                      {/* top row */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                        <div className="flex items-center gap-1.5">
+                          {result && <SourceBadge source={result.source} />}
+                          {result
+                            ? <span className="pill bg-gold/12 text-gold border border-gold/20">Final</span>
+                            : <span className="pill bg-white/8 text-white/50">No result yet</span>
+                          }
+                        </div>
+                      </div>
+
+                      {/* teams + score */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 text-center">
+                          <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
+                          <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
+                        </div>
+                        <div className="px-2 text-center">
+                          {result ? (
+                            <div className="text-2xl md:text-3xl font-black tabular-nums">
+                              {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
+                            </div>
+                          ) : (
+                            <div className="text-white/30 font-black text-lg">–</div>
+                          )}
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
+                          <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
+                        </div>
+                      </div>
+
+                      {/* predictions (always revealed for completed matches) */}
+                      {preds.length > 0 ? (
+                        <div className="glass-soft p-3">
+                          <p className="text-xs text-white/40 text-center mb-2 uppercase tracking-wide">Predictions</p>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {preds.map(p => (
+                              <span key={p.userName} className="pill bg-white/6 text-white/70">
+                                {p.userName} <span className="text-white/90 font-bold">{p.homeScore}–{p.awayScore}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-center text-xs text-white/30">No predictions placed</p>
+                      )}
+
+                      <a
+                        href={`/matches/${f.id}`}
+                        className="btn btn-ghost w-full py-3 text-sm"
+                      >
+                        View scoring breakdown →
+                      </a>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         <footer className="text-center text-white/25 text-xs pt-2 pb-6">
           Auto-syncs across all devices · ANJ Predictions

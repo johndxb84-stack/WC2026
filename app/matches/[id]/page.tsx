@@ -3,23 +3,16 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { orderForVenueDate, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
 import { squads } from '@/lib/squads';
+import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
 const PLAYERS = ['Anthony', 'Nicolas', 'Jean'] as const;
 
-const FLAG: Record<string, string> = {
-  'Spain': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Belgium': '🇧🇪', 'Egypt': '🇪🇬',
-  'Saudi Arabia': '🇸🇦', 'Uruguay': '🇺🇾', 'IR Iran': '🇮🇷', 'New Zealand': '🇳🇿',
-  'France': '🇫🇷', 'Senegal': '🇸🇳', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
-  'Argentina': '🇦🇷', 'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴',
-  'Portugal': '🇵🇹', 'DR Congo': '🇨🇩', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croatia': '🇭🇷',
-  'Ghana': '🇬🇭', 'Panama': '🇵🇦', 'Uzbekistan': '🇺🇿', 'Colombia': '🇨🇴',
-};
 
 type TeamInfo = { name: string; shortName: string | null };
-type ApiFixture = { id: string; scheduledKickoff: string; venue: string | null; status: string; homeTeam: TeamInfo; awayTeam: TeamInfo };
+type ApiFixture = { id: string; scheduledKickoff: string; venue: string | null; status: string; playerOrder: string[] | null; homeTeam: TeamInfo; awayTeam: TeamInfo };
 type ApiPrediction = {
   id: string; fixtureId: string; user: { name: string };
   predictedHomeScore90: number | null; predictedAwayScore90: number | null;
@@ -135,8 +128,8 @@ export default function MatchPage() {
 
   const homeSquad = squads[fixture.homeTeam.name] ?? [];
   const awaySquad = squads[fixture.awayTeam.name] ?? [];
-  const homeFlag = FLAG[fixture.homeTeam.name] ?? '⚽';
-  const awayFlag = FLAG[fixture.awayTeam.name] ?? '⚽';
+  const homeFlag = flag(fixture.homeTeam.name);
+  const awayFlag = flag(fixture.awayTeam.name);
 
   const handleBet = async (e: FormEvent) => {
     e.preventDefault();
@@ -429,7 +422,12 @@ export default function MatchPage() {
 
           {result ? (
             <div className="rounded-2xl bg-gold/8 border border-gold/25 p-4 mb-4">
-              <p className="text-gold text-xs uppercase tracking-wide font-semibold mb-3">Official result</p>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-gold text-xs uppercase tracking-wide font-semibold">Official result</p>
+                {result.source === 'auto'
+                  ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto-synced</span>
+                  : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>}
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
                   <p className="text-white/45 text-xs">90-min score</p>

@@ -16,6 +16,8 @@ export type StoredResult = {
   homePenaltyScore?: number | null;
   awayPenaltyScore?: number | null;
   settledAt: string;
+  /** 'manual' = entered by a person (protected, never overwritten by auto-sync); 'auto' = fetched from the football API */
+  source?: 'manual' | 'auto';
 };
 
 export async function readResults(): Promise<Record<string, StoredResult>> {
@@ -30,12 +32,16 @@ export async function readResults(): Promise<Record<string, StoredResult>> {
 
 export async function writeResult(result: StoredResult): Promise<void> {
   const current = await readResults();
-  const updated = { ...current, [result.fixtureId]: result };
-  const serialized = JSON.stringify(updated);
+  await writeResults({ ...current, [result.fixtureId]: result });
+}
+
+// Write the whole results map in one operation (used by the batched sync).
+export async function writeResults(map: Record<string, StoredResult>): Promise<void> {
+  const serialized = JSON.stringify(map);
   try {
     const remote = await redisCommand<string>(['SET', resultsKey, serialized]);
-    if (remote === null) mem.wc2026Results = updated;
+    if (remote === null) mem.wc2026Results = map;
   } catch {
-    mem.wc2026Results = updated;
+    mem.wc2026Results = map;
   }
 }

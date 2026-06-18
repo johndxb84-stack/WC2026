@@ -1,20 +1,32 @@
-const FLAG: Record<string, string> = {
-  'Spain': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Belgium': '🇧🇪', 'Egypt': '🇪🇬',
-  'Saudi Arabia': '🇸🇦', 'Uruguay': '🇺🇾', 'IR Iran': '🇮🇷', 'New Zealand': '🇳🇿',
-  'France': '🇫🇷', 'Senegal': '🇸🇳', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
-  'Argentina': '🇦🇷', 'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴',
-  'Portugal': '🇵🇹', 'DR Congo': '🇨🇩', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croatia': '🇭🇷',
-  'Ghana': '🇬🇭', 'Panama': '🇵🇦', 'Uzbekistan': '🇺🇿', 'Colombia': '🇨🇴',
-  'Czechia': '🇨🇿', 'South Africa': '🇿🇦', 'Switzerland': '🇨🇭',
-  'Bosnia and Herzegovina': '🇧🇦', 'Canada': '🇨🇦', 'Qatar': '🇶🇦',
-  'Mexico': '🇲🇽', 'South Korea': '🇰🇷',
-  'USA': '🇺🇸', 'Brazil': '🇧🇷', 'Germany': '🇩🇪', 'Netherlands': '🇳🇱',
-  'Morocco': '🇲🇦', 'Japan': '🇯🇵', 'Australia': '🇦🇺', 'Türkiye': '🇹🇷',
-  'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Ecuador': '🇪🇨', 'Paraguay': '🇵🇾', 'Haiti': '🇭🇹',
-  'Curaçao': '🇨🇼', 'Côte d\'Ivoire': '🇨🇮', 'Serbia': '🇷🇸', 'Denmark': '🇩🇰',
-  'Tunisia': '🇹🇳', 'Indonesia': '🇮🇩', 'Slovenia': '🇸🇮', 'Albania': '🇦🇱',
-  'Cameroon': '🇨🇲', 'Nigeria': '🇳🇬', 'Costa Rica': '🇨🇷', 'Venezuela': '🇻🇪',
-  'Honduras': '🇭🇳', 'Libya': '🇱🇾', 'Mauritania': '🇲🇷', 'Chad': '🇹🇩',
+// Shared flag emojis keyed by our display team names. Falls back to ⚽ for
+// anything unmapped (see flag()).
+export const FLAG: Record<string, string> = {
+  // Hosts & majors
+  'Mexico': '🇲🇽', 'United States': '🇺🇸', 'USA': '🇺🇸', 'Canada': '🇨🇦',
+  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'France': '🇫🇷', 'Germany': '🇩🇪',
+  'Spain': '🇪🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Portugal': '🇵🇹', 'Netherlands': '🇳🇱',
+  'Belgium': '🇧🇪', 'Italy': '🇮🇹', 'Croatia': '🇭🇷', 'Switzerland': '🇨🇭',
+  // Rest of field
+  'South Africa': '🇿🇦', 'Morocco': '🇲🇦', 'Japan': '🇯🇵', 'South Korea': '🇰🇷',
+  'Saudi Arabia': '🇸🇦', 'Senegal': '🇸🇳', 'Ghana': '🇬🇭', 'Nigeria': '🇳🇬',
+  'Ecuador': '🇪🇨', 'Uruguay': '🇺🇾', 'Colombia': '🇨🇴', 'Chile': '🇨🇱',
+  'Costa Rica': '🇨🇷', 'Honduras': '🇭🇳', 'Panama': '🇵🇦', 'Qatar': '🇶🇦',
+  'Iran': '🇮🇷', 'IR Iran': '🇮🇷', 'Turkey': '🇹🇷', 'Türkiye': '🇹🇷',
+  'Poland': '🇵🇱', 'Denmark': '🇩🇰', 'Serbia': '🇷🇸', 'Ukraine': '🇺🇦',
+  'Romania': '🇷🇴', 'New Zealand': '🇳🇿', 'Australia': '🇦🇺',
+  'Cabo Verde': '🇨🇻', 'Cape Verde Islands': '🇨🇻', 'Egypt': '🇪🇬',
+  'Iraq': '🇮🇶', 'Norway': '🇳🇴', 'Algeria': '🇩🇿', 'Austria': '🇦🇹',
+  'Jordan': '🇯🇴', 'DR Congo': '🇨🇩', 'Congo DR': '🇨🇩', 'Uzbekistan': '🇺🇿',
+  'Czechia': '🇨🇿', 'Czech Republic': '🇨🇿', 'Bosnia and Herzegovina': '🇧🇦',
+  'Bosnia & Herzegovina': '🇧🇦', 'Paraguay': '🇵🇾', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  'Sweden': '🇸🇪', 'Tunisia': '🇹🇳', 'Haiti': '🇭🇹', 'Curaçao': '🇨🇼',
+  'Ivory Coast': '🇨🇮', "Côte d'Ivoire": '🇨🇮', 'Cameroon': '🇨🇲',
+  'Mali': '🇲🇱', 'Greece': '🇬🇷', 'Hungary': '🇭🇺', 'Slovakia': '🇸🇰',
+  'Slovenia': '🇸🇮', 'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Peru': '🇵🇪', 'Venezuela': '🇻🇪',
+  'Bolivia': '🇧🇴', 'Jamaica': '🇯🇲', 'El Salvador': '🇸🇻', 'Guatemala': '🇬🇹',
+  'Oman': '🇴🇲', 'United Arab Emirates': '🇦🇪', 'UAE': '🇦🇪', 'Bahrain': '🇧🇭',
+  'China': '🇨🇳', 'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳',
+  'New Caledonia': '🇳🇨', 'Suriname': '🇸🇷', 'Angola': '🇦🇴', 'Zambia': '🇿🇲',
 };
 
 export function flag(team: string): string {

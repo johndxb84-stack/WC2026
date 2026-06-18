@@ -63,6 +63,7 @@ export function orderForVenueDate(kickoff: Date, venue: string | null): string[]
   const idx = ((daysDiff % 3) + 3) % 3;
   return [...ROTATION[idx]];
 }
+
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }
 export function isLocked(fixture: FixtureLike, now = new Date()) { return Boolean(fixture.started) || now >= fixture.kickoff; }
 export function currentEligiblePlayer(order: string[], predictions: PredictionRecord[]) {

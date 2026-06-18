@@ -119,6 +119,12 @@ export function currentConfig() {
   return { league, season };
 }
 
+// Diagnostics: count fixtures for an explicit league/season (to test plan coverage).
+export async function countFixtures(league: string | number, season: string | number) {
+  const res = await apiGet<ApiFootballFixture[]>(`/fixtures?league=${league}&season=${season}`);
+  return res.length;
+}
+
 // Diagnostics: list leagues matching a search term, with their available seasons.
 export async function searchLeagues(term: string) {
   const res = await apiGet<Array<{ league: { id: number; name: string; type: string }; seasons: Array<{ year: number }> }>>(

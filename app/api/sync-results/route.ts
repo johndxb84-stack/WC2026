@@ -13,6 +13,7 @@ import {
   matchScorer,
   currentConfig,
   searchLeagues,
+  countFixtures,
   type ApiFootballFixture,
 } from '@/lib/football-api';
 
@@ -174,6 +175,15 @@ async function debugInfo() {
     out.worldCupLeagues = await searchLeagues('world cup');
   } catch (err) {
     out.leaguesError = err instanceof Error ? err.message : String(err);
+  }
+  // Probe plan coverage: a past WC (2022) vs the current one (2026).
+  try {
+    out.coverageProbe = {
+      'league1_season2022': await countFixtures(1, 2022),
+      'league1_season2026': await countFixtures(1, 2026),
+    };
+  } catch (err) {
+    out.coverageError = err instanceof Error ? err.message : String(err);
   }
   return NextResponse.json({ ok: true, debug: out });
 }

@@ -3,22 +3,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { dailyOrder, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
 import { squads } from '@/lib/squads';
+import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
 const PLAYERS = ['Anthony', 'Nicolas', 'Jean'] as const;
 
-const FLAG: Record<string, string> = {
-  'Spain': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Belgium': '🇧🇪', 'Egypt': '🇪🇬',
-  'Saudi Arabia': '🇸🇦', 'Uruguay': '🇺🇾', 'IR Iran': '🇮🇷', 'New Zealand': '🇳🇿',
-  'France': '🇫🇷', 'Senegal': '🇸🇳', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
-  'Argentina': '🇦🇷', 'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴',
-  'Portugal': '🇵🇹', 'DR Congo': '🇨🇩', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croatia': '🇭🇷',
-  'Ghana': '🇬🇭', 'Panama': '🇵🇦', 'Uzbekistan': '🇺🇿', 'Colombia': '🇨🇴',
-  'Czechia': '🇨🇿', 'South Africa': '🇿🇦', 'Switzerland': '🇨🇭', 'Bosnia and Herzegovina': '🇧🇦',
-  'Canada': '🇨🇦', 'Qatar': '🇶🇦', 'Mexico': '🇲🇽', 'South Korea': '🇰🇷',
-};
 
 type TeamInfo = { name: string; shortName: string | null };
 type ApiFixture = { id: string; scheduledKickoff: string; venue: string | null; status: string; playerOrder: string[] | null; homeTeam: TeamInfo; awayTeam: TeamInfo };
@@ -137,8 +128,8 @@ export default function MatchPage() {
 
   const homeSquad = squads[fixture.homeTeam.name] ?? [];
   const awaySquad = squads[fixture.awayTeam.name] ?? [];
-  const homeFlag = FLAG[fixture.homeTeam.name] ?? '⚽';
-  const awayFlag = FLAG[fixture.awayTeam.name] ?? '⚽';
+  const homeFlag = flag(fixture.homeTeam.name);
+  const awayFlag = flag(fixture.awayTeam.name);
 
   const handleBet = async (e: FormEvent) => {
     e.preventDefault();

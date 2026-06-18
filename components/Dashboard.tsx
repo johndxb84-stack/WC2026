@@ -1,27 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, shouldReveal } from '@/lib/domain';
+import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
 import type { LiveSnapshot } from '@/lib/live-store';
 
 const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
-
-const FLAG: Record<string, string> = {
-  'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'United States': '🇺🇸', 'Canada': '🇨🇦',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'France': '🇫🇷', 'Germany': '🇩🇪',
-  'Spain': '🇪🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Portugal': '🇵🇹', 'Netherlands': '🇳🇱',
-  'Morocco': '🇲🇦', 'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'Australia': '🇦🇺',
-  'Saudi Arabia': '🇸🇦', 'Senegal': '🇸🇳', 'Ghana': '🇬🇭', 'Nigeria': '🇳🇬',
-  'Ecuador': '🇪🇨', 'Uruguay': '🇺🇾', 'Colombia': '🇨🇴', 'Chile': '🇨🇱',
-  'Costa Rica': '🇨🇷', 'Honduras': '🇭🇳', 'Panama': '🇵🇦', 'Qatar': '🇶🇦',
-  'Iran': '🇮🇷', 'IR Iran': '🇮🇷', 'Turkey': '🇹🇷', 'Poland': '🇵🇱', 'Switzerland': '🇨🇭',
-  'Belgium': '🇧🇪', 'Denmark': '🇩🇰', 'Croatia': '🇭🇷', 'Serbia': '🇷🇸',
-  'Ukraine': '🇺🇦', 'Romania': '🇷🇴', 'New Zealand': '🇳🇿',
-  'Cabo Verde': '🇨🇻', 'Egypt': '🇪🇬', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
-  'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴', 'DR Congo': '🇨🇩',
-  'Uzbekistan': '🇺🇿', 'Czechia': '🇨🇿', 'Bosnia and Herzegovina': '🇧🇦',
-};
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -166,9 +151,13 @@ export function Dashboard() {
     return false;
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
+  const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
   const pastFixtures = data.fixtures.filter(f => {
     const kickoffKey = dateKeyInTimezone(new Date(f.scheduledKickoff), TIMEZONE);
-    return kickoffKey < todayKey;
+    if (kickoffKey >= todayKey) return false;
+    // Only show past games we actually engaged with (a bet or a recorded result),
+    // so auto-imported games nobody played don't flood the history.
+    return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
   return (
@@ -289,7 +278,7 @@ export function Dashboard() {
                     {/* teams */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.homeTeam.name] ?? '⚽'}</div>
+                        <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                       </div>
                       <div className="px-2 text-center">
@@ -311,7 +300,7 @@ export function Dashboard() {
                         )}
                       </div>
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{FLAG[f.awayTeam.name] ?? '⚽'}</div>
+                        <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
                       </div>
                     </div>
@@ -418,7 +407,7 @@ export function Dashboard() {
                       {/* teams + score */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 text-center">
-                          <div className="text-4xl md:text-5xl leading-none">{FLAG[f.homeTeam.name] ?? '⚽'}</div>
+                          <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
                           <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                         </div>
                         <div className="px-2 text-center">
@@ -431,7 +420,7 @@ export function Dashboard() {
                           )}
                         </div>
                         <div className="flex-1 text-center">
-                          <div className="text-4xl md:text-5xl leading-none">{FLAG[f.awayTeam.name] ?? '⚽'}</div>
+                          <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
                           <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
                         </div>
                       </div>

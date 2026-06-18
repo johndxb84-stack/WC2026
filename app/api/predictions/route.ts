@@ -4,6 +4,7 @@ import { fixtures as mockFixtures, players as mockPlayers } from '@/lib/mock-dat
 import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/redis-store';
 import { readResults } from '@/lib/results-store';
 import { readLive } from '@/lib/live-store';
+import { readFixtures } from '@/lib/fixtures-store';
 import { scorePrediction } from '@/lib/domain';
 
 export const runtime = 'nodejs';
@@ -155,11 +156,20 @@ function computePlayerPoints(
 
 export async function GET() {
   try {
-    const [state, results, live] = await Promise.all([readState(), readResults(), readLive()]);
+    const [state, results, live, imported] = await Promise.all([readState(), readResults(), readLive(), readFixtures()]);
     const persistence = redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory';
     const playerPoints = computePlayerPoints(state.predictions, results);
+    const importedApi = Object.values(imported).map((f) => ({
+      id: f.id,
+      scheduledKickoff: f.kickoff,
+      venue: f.venue,
+      status: f.status,
+      playerOrder: null,
+      homeTeam: { name: f.homeTeam, shortName: null, logoUrl: null },
+      awayTeam: { name: f.awayTeam, shortName: null, logoUrl: null },
+    }));
     return NextResponse.json({
-      fixtures: mockFixtures.map(toApiFixture),
+      fixtures: [...mockFixtures.map(toApiFixture), ...importedApi],
       predictions: state.predictions.map(toApiPrediction),
       players: mockPlayers.map((p) => ({
         id: p.id,

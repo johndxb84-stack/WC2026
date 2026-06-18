@@ -55,6 +55,19 @@ export function teamsMatch(a: string, b: string) {
   return canonicalTeam(a) === canonicalTeam(b);
 }
 
+// Provider spelling -> our preferred display spelling (so flags & squads line up).
+const DISPLAY_NAMES: Record<string, string> = {
+  'cape verde islands': 'Cabo Verde',
+  'iran': 'IR Iran',
+  'congo dr': 'DR Congo',
+  'czech republic': 'Czechia',
+  'korea republic': 'South Korea',
+  'bosnia & herzegovina': 'Bosnia and Herzegovina',
+};
+export function displayTeam(name: string) {
+  return DISPLAY_NAMES[normalize(name)] ?? name;
+}
+
 // Match a provider goalscorer name to one of our squad spellings so the
 // first-scorer point computes correctly. Returns our spelling, or the
 // provider name unchanged if nothing lines up.
@@ -85,7 +98,13 @@ export function matchScorer(apiName: string | null | undefined, squad: string[])
 // ---------- Provider shapes (only the fields we use) ----------
 
 export type ApiFootballFixture = {
-  fixture: { id: number; status: { short: string; elapsed: number | null } };
+  fixture: {
+    id: number;
+    date: string;
+    status: { short: string; elapsed: number | null };
+    venue: { name: string | null; city: string | null };
+  };
+  league: { round: string };
   teams: { home: { name: string }; away: { name: string } };
   goals: { home: number | null; away: number | null };
   score: {

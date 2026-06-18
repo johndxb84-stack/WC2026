@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fixtures as mockFixtures } from '@/lib/mock-data';
 import { squads } from '@/lib/squads';
-import { readResults, writeResult, type StoredResult } from '@/lib/results-store';
+import { readResults, writeResults, type StoredResult } from '@/lib/results-store';
 import { writeLive, type LiveSnapshot } from '@/lib/live-store';
+import { upsertFixtures, type ImportedFixture } from '@/lib/fixtures-store';
 import { redisCommand } from '@/lib/redis-store';
 import {
   footballApiConfigured,
@@ -13,6 +14,8 @@ import {
   isInPlay,
   teamsMatch,
   matchScorer,
+  canonicalTeam,
+  displayTeam,
   currentConfig,
   searchLeagues,
   countFixtures,
@@ -46,7 +49,7 @@ async function writeMeta(meta: SyncMeta) {
 // Find the provider fixture for one of our fixtures. Returns the match plus
 // whether home/away are reversed relative to ours (so we can swap scores).
 function findProviderFixture(
-  ours: (typeof mockFixtures)[number],
+  ours: { homeTeam: string; awayTeam: string },
   pool: ApiFootballFixture[],
 ): { pf: ApiFootballFixture; reversed: boolean } | null {
   for (const pf of pool) {
@@ -60,40 +63,96 @@ function findProviderFixture(
   return null;
 }
 
+// A fixture to process, from either our manual list or the auto-imported set.
+type Target = {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  kickoff: Date;
+  apiId?: number; // set for imported fixtures — lets us match by id, not name
+};
+
+// Dedupe imported vs manual by the (unordered) team pair. Our manual fixtures
+// are all distinct group-stage pairings, and approximate kickoff times could
+// cross a day boundary vs the real schedule — so we match on teams, not date.
+function importKey(home: string, away: string) {
+  return [canonicalTeam(home), canonicalTeam(away)].sort().join('|');
+}
+
+async function readBetFixtureIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  try {
+    const raw = await redisCommand<string>(['GET', 'wc2026:predictions:v1']);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const arr = Array.isArray(parsed) ? parsed : parsed.predictions ?? [];
+      for (const p of arr) if (p?.fixtureId) ids.add(p.fixtureId);
+    }
+  } catch { /* none */ }
+  return ids;
+}
+
 async function runSync() {
   const seasonFixtures = await fetchSeasonFixtures();
-  const existing = await readResults();
   const now = Date.now();
 
-  const summary = { matched: 0, written: 0, skippedManual: 0, skippedComplete: 0, pending: 0, live: 0 };
-  const live: Record<string, LiveSnapshot> = {};
+  // 1) Auto-import: every provider fixture that isn't already one of our manual
+  // fixtures becomes an imported fixture (stable id wc-{apiId}).
+  const manualKeys = new Set(mockFixtures.map(m => importKey(m.homeTeam, m.awayTeam)));
+  const incoming: Record<string, ImportedFixture> = {};
+  for (const pf of seasonFixtures) {
+    const home = displayTeam(pf.teams.home.name);
+    const away = displayTeam(pf.teams.away.name);
+    if (manualKeys.has(importKey(home, away))) continue;
+    const id = `wc-${pf.fixture.id}`;
+    incoming[id] = {
+      id, apiId: pf.fixture.id, homeTeam: home, awayTeam: away,
+      kickoff: pf.fixture.date,
+      venue: pf.fixture.venue?.name ?? null,
+      stage: pf.league.round ?? '',
+      status: pf.fixture.status.short,
+    };
+  }
+  const importedAll = await upsertFixtures(incoming);
 
-  for (const ours of mockFixtures) {
+  // 2) Process results + live across manual and imported fixtures.
+  const existing = await readResults();
+  const betIds = await readBetFixtureIds();
+  const updated: Record<string, StoredResult> = { ...existing };
+  const live: Record<string, LiveSnapshot> = {};
+  const summary = { imported: Object.keys(incoming).length, matched: 0, written: 0, skippedManual: 0, skippedComplete: 0, pending: 0, live: 0 };
+
+  const targets: Target[] = [
+    ...mockFixtures.map(m => ({ id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam, kickoff: m.kickoff })),
+    ...Object.values(importedAll).map(i => ({ id: i.id, homeTeam: i.homeTeam, awayTeam: i.awayTeam, kickoff: new Date(i.kickoff), apiId: i.apiId })),
+  ];
+
+  for (const ours of targets) {
     if (now < ours.kickoff.getTime()) continue; // not started yet
     const prev = existing[ours.id];
-
     if (prev?.source === 'manual') { summary.skippedManual++; continue; }
-    // already fully auto-populated (possession is the last field to arrive)
-    if (prev?.source === 'auto' && prev.homePossession != null) { summary.skippedComplete++; continue; }
 
-    const found = findProviderFixture(ours, seasonFixtures);
-    if (!found) continue;
+    // Match the provider fixture: by id for imported, by team names for manual.
+    let pf: ApiFootballFixture | undefined;
+    let reversed = false;
+    if (ours.apiId != null) {
+      pf = seasonFixtures.find(p => p.fixture.id === ours.apiId);
+    } else {
+      const found = findProviderFixture(ours, seasonFixtures);
+      if (found) { pf = found.pf; reversed = found.reversed; }
+    }
+    if (!pf) continue;
     summary.matched++;
 
-    const { pf, reversed } = found;
+    const fixture = pf;
     const pick = <T,>(home: T, away: T) => (reversed ? { home: away, away: home } : { home, away });
 
-    if (!isFinished(pf.fixture.status.short)) {
-      // Still being played — capture a live snapshot for the dashboard.
-      if (isInPlay(pf.fixture.status.short)) {
-        const g = pick(pf.goals.home, pf.goals.away);
+    if (!isFinished(fixture.fixture.status.short)) {
+      if (isInPlay(fixture.fixture.status.short)) {
+        const g = pick(fixture.goals.home, fixture.goals.away);
         live[ours.id] = {
-          fixtureId: ours.id,
-          status: pf.fixture.status.short,
-          elapsed: pf.fixture.status.elapsed,
-          homeGoals: g.home ?? 0,
-          awayGoals: g.away ?? 0,
-          updatedAt: new Date().toISOString(),
+          fixtureId: ours.id, status: fixture.fixture.status.short, elapsed: fixture.fixture.status.elapsed,
+          homeGoals: g.home ?? 0, awayGoals: g.away ?? 0, updatedAt: new Date().toISOString(),
         };
         summary.live++;
       }
@@ -101,57 +160,50 @@ async function runSync() {
       continue;
     }
 
-    const ft = pick(pf.score.fulltime.home, pf.score.fulltime.away);
+    // Finished. Only settle games someone actually bet on (or our manual ones).
+    const isManual = ours.apiId == null;
+    if (!isManual && !betIds.has(ours.id)) continue;
+
+    // Already fully settled (possession is the last field to land) — don't refetch.
+    if (prev?.source === 'auto' && prev.homePossession != null) { summary.skippedComplete++; continue; }
+
+    const ft = pick(fixture.score.fulltime.home, fixture.score.fulltime.away);
     if (ft.home == null || ft.away == null) continue;
+    const et = pick(fixture.score.extratime.home, fixture.score.extratime.away);
+    const pen = pick(fixture.score.penalty.home, fixture.score.penalty.away);
 
-    const et = pick(pf.score.extratime.home, pf.score.extratime.away);
-    const pen = pick(pf.score.penalty.home, pf.score.penalty.away);
-
-    // Possession (per-team), mapped onto our home/away.
     let homePossession: number | undefined;
     let awayPossession: number | undefined;
     try {
-      const poss = await fetchPossession(pf.fixture.id);
+      const poss = await fetchPossession(fixture.fixture.id);
       if (poss) {
-        if (teamsMatch(poss.homeName, ours.homeTeam)) {
-          homePossession = poss.home; awayPossession = poss.away;
-        } else {
-          homePossession = poss.away; awayPossession = poss.home;
-        }
+        if (teamsMatch(poss.homeName, ours.homeTeam)) { homePossession = poss.home; awayPossession = poss.away; }
+        else { homePossession = poss.away; awayPossession = poss.home; }
       }
-    } catch { /* possession optional */ }
+    } catch { /* optional */ }
 
-    // First goalscorer, mapped to our squad spelling.
     let firstGoalscorer: string | null = null;
     try {
-      const scorer = await fetchFirstScorer(pf.fixture.id);
+      const scorer = await fetchFirstScorer(fixture.fixture.id);
       if (scorer) {
-        const squad = teamsMatch(scorer.teamName, ours.homeTeam)
-          ? squads[ours.homeTeam] ?? []
-          : squads[ours.awayTeam] ?? [];
+        const squad = teamsMatch(scorer.teamName, ours.homeTeam) ? squads[ours.homeTeam] ?? [] : squads[ours.awayTeam] ?? [];
         firstGoalscorer = matchScorer(scorer.playerName, squad);
       }
-    } catch { /* scorer optional */ }
+    } catch { /* optional */ }
 
-    const result: StoredResult = {
+    updated[ours.id] = {
       fixtureId: ours.id,
-      homeScore90: ft.home,
-      awayScore90: ft.away,
-      homePossession,
-      awayPossession,
-      firstGoalscorer,
-      homeScoreExtraTime: et.home ?? null,
-      awayScoreExtraTime: et.away ?? null,
-      homePenaltyScore: pen.home ?? null,
-      awayPenaltyScore: pen.away ?? null,
-      settledAt: new Date().toISOString(),
-      source: 'auto',
+      homeScore90: ft.home, awayScore90: ft.away,
+      homePossession, awayPossession, firstGoalscorer,
+      homeScoreExtraTime: et.home ?? null, awayScoreExtraTime: et.away ?? null,
+      homePenaltyScore: pen.home ?? null, awayPenaltyScore: pen.away ?? null,
+      settledAt: new Date().toISOString(), source: 'auto',
     };
-    await writeResult(result);
     summary.written++;
   }
 
-  await writeLive(live); // rebuilt fresh each run, so finished games drop out
+  if (summary.written > 0) await writeResults(updated); // one batched write
+  await writeLive(live);
   return summary;
 }
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { fixtures as mockFixtures, players as mockPlayers } from '@/lib/mock-data';
 import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/redis-store';
 import { readResults } from '@/lib/results-store';
+import { readLive } from '@/lib/live-store';
 import { scorePrediction } from '@/lib/domain';
 
 export const runtime = 'nodejs';
@@ -154,7 +155,7 @@ function computePlayerPoints(
 
 export async function GET() {
   try {
-    const [state, results] = await Promise.all([readState(), readResults()]);
+    const [state, results, live] = await Promise.all([readState(), readResults(), readLive()]);
     const persistence = redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory';
     const playerPoints = computePlayerPoints(state.predictions, results);
     return NextResponse.json({
@@ -167,6 +168,7 @@ export async function GET() {
         totalPoints: (playerPoints[p.name] ?? 0) + (p.basePoints ?? 0),
       })),
       results,
+      live,
       persistence,
     });
   } catch (err) {

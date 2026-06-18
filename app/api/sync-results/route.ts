@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { fixtures as mockFixtures } from '@/lib/mock-data';
 import { squads } from '@/lib/squads';
 import { readResults, writeResult, type StoredResult } from '@/lib/results-store';
+import { writeLive, type LiveSnapshot } from '@/lib/live-store';
 import { redisCommand } from '@/lib/redis-store';
 import {
   footballApiConfigured,
@@ -9,6 +10,7 @@ import {
   fetchPossession,
   fetchFirstScorer,
   isFinished,
+  isInPlay,
   teamsMatch,
   matchScorer,
   currentConfig,
@@ -63,7 +65,8 @@ async function runSync() {
   const existing = await readResults();
   const now = Date.now();
 
-  const summary = { matched: 0, written: 0, skippedManual: 0, skippedComplete: 0, pending: 0 };
+  const summary = { matched: 0, written: 0, skippedManual: 0, skippedComplete: 0, pending: 0, live: 0 };
+  const live: Record<string, LiveSnapshot> = {};
 
   for (const ours of mockFixtures) {
     if (now < ours.kickoff.getTime()) continue; // not started yet
@@ -78,9 +81,25 @@ async function runSync() {
     summary.matched++;
 
     const { pf, reversed } = found;
-    if (!isFinished(pf.fixture.status.short)) { summary.pending++; continue; }
-
     const pick = <T,>(home: T, away: T) => (reversed ? { home: away, away: home } : { home, away });
+
+    if (!isFinished(pf.fixture.status.short)) {
+      // Still being played — capture a live snapshot for the dashboard.
+      if (isInPlay(pf.fixture.status.short)) {
+        const g = pick(pf.goals.home, pf.goals.away);
+        live[ours.id] = {
+          fixtureId: ours.id,
+          status: pf.fixture.status.short,
+          elapsed: pf.fixture.status.elapsed,
+          homeGoals: g.home ?? 0,
+          awayGoals: g.away ?? 0,
+          updatedAt: new Date().toISOString(),
+        };
+        summary.live++;
+      }
+      summary.pending++;
+      continue;
+    }
 
     const ft = pick(pf.score.fulltime.home, pf.score.fulltime.away);
     if (ft.home == null || ft.away == null) continue;
@@ -132,6 +151,7 @@ async function runSync() {
     summary.written++;
   }
 
+  await writeLive(live); // rebuilt fresh each run, so finished games drop out
   return summary;
 }
 

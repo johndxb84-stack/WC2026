@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, shouldReveal } from '@/lib/domain';
 import type { StoredResult } from '@/lib/results-store';
+import type { LiveSnapshot } from '@/lib/live-store';
 
 const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
@@ -51,7 +52,13 @@ type ApiPrediction = {
   score: { totalPoints: number } | null;
 };
 type ApiPlayer = { id: string; name: string; avatarUrl: string | null; totalPoints: number };
-type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult> };
+type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult>; live?: Record<string, LiveSnapshot> };
+
+const LIVE_LABEL: Record<string, string> = { HT: 'Half-time', P: 'Penalties', BT: 'Break', ET: 'Extra time' };
+function liveLabel(s: LiveSnapshot) {
+  if (LIVE_LABEL[s.status]) return LIVE_LABEL[s.status];
+  return s.elapsed != null ? `${s.elapsed}'` : 'Live';
+}
 
 function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
   return predictions
@@ -253,12 +260,15 @@ export function Dashboard() {
                 const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);
                 const isLocked = now >= kickoff;
                 const result = data.results?.[f.id];
+                const live = !result ? data.live?.[f.id] : undefined;
                 const cd = countdown(kickoff, now);
                 const betCount = preds.length;
 
                 let statusPill;
                 if (result) {
                   statusPill = <span className="pill bg-gold/12 text-gold border border-gold/20">Result in</span>;
+                } else if (live) {
+                  statusPill = <span className="pill bg-rose/15 text-rose border border-rose/25"><span className="live-dot-red" />{liveLabel(live)}</span>;
                 } else if (isLocked) {
                   statusPill = <span className="pill bg-rose/12 text-rose border border-rose/20">Closed</span>;
                 } else {
@@ -286,6 +296,15 @@ export function Dashboard() {
                         {result ? (
                           <div className="text-2xl md:text-3xl font-black tabular-nums">
                             {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
+                          </div>
+                        ) : live ? (
+                          <div>
+                            <div className="text-2xl md:text-3xl font-black tabular-nums text-rose">
+                              {live.homeGoals}<span className="text-rose/40 mx-1">–</span>{live.awayGoals}
+                            </div>
+                            <div className="text-[0.6rem] text-rose/80 uppercase tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                              <span className="live-dot-red" />{liveLabel(live)}
+                            </div>
                           </div>
                         ) : (
                           <div className="text-white/30 font-black text-lg">VS</div>

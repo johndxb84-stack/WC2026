@@ -85,8 +85,9 @@ export function matchScorer(apiName: string | null | undefined, squad: string[])
 // ---------- Provider shapes (only the fields we use) ----------
 
 export type ApiFootballFixture = {
-  fixture: { id: number; status: { short: string } };
+  fixture: { id: number; status: { short: string; elapsed: number | null } };
   teams: { home: { name: string }; away: { name: string } };
+  goals: { home: number | null; away: number | null };
   score: {
     fulltime: { home: number | null; away: number | null };
     extratime: { home: number | null; away: number | null };
@@ -107,6 +108,11 @@ type ApiFootballEvent = {
 const FINISHED = new Set(['FT', 'AET', 'PEN']);
 export function isFinished(status: string) {
   return FINISHED.has(status);
+}
+
+const IN_PLAY = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']);
+export function isInPlay(status: string) {
+  return IN_PLAY.has(status);
 }
 
 export async function fetchSeasonFixtures(): Promise<ApiFootballFixture[]> {

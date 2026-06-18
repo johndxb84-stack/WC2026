@@ -91,6 +91,7 @@ function toApiFixture(f: (typeof mockFixtures)[number]) {
     scheduledKickoff: f.kickoff.toISOString(),
     venue: f.venue,
     status: f.status,
+    playerOrder: f.playerOrder ?? null,
     homeTeam: { name: f.homeTeam, shortName: null, logoUrl: null },
     awayTeam: { name: f.awayTeam, shortName: null, logoUrl: null },
   };

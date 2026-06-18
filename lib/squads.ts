@@ -154,4 +154,52 @@ export const squads: Record<string, string[]> = {
     'Luis Díaz', 'Rafael Santos Borré', 'Miguel Ángel Borja', 'Jhon Córdoba', 'Cucho Hernández',
     'Jhon Durán', 'Juan Cuadrado',
   ],
+  'Czechia': [
+    'Jindřich Staněk', 'Matěj Kovář', 'Vítězslav Jaroš',
+    'Vladimír Coufal', 'Tomáš Holeš', 'Robin Hranáč', 'David Zima', 'Ladislav Krejčí', 'David Doudera',
+    'Tomáš Souček', 'Lukáš Provod', 'Antonín Barák', 'Pavel Šulc', 'Michal Sadílek', 'Lukáš Červ',
+    'Adam Hložek', 'Patrik Schick', 'Mojmír Chytil', 'Tomáš Chorý', 'Václav Černý', 'Ondřej Lingr',
+  ],
+  'South Africa': [
+    'Ronwen Williams', 'Ricardo Goss', 'Sipho Chaine',
+    'Khuliso Mudau', 'Nyiko Mobbie', 'Mothobi Mvala', 'Siyanda Xulu', 'Aubrey Modiba', 'Terrence Mashego',
+    'Teboho Mokoena', 'Sphephelo Sithole', 'Bongokuhle Hlongwane', 'Themba Zwane', 'Thalente Mbatha',
+    'Percy Tau', 'Lyle Foster', 'Iqraam Rayners', 'Evidence Makgopa', 'Mihlali Mayambela', 'Oswin Appollis',
+  ],
+  'Switzerland': [
+    'Yann Sommer', 'Gregor Kobel', 'Yvon Mvogo',
+    'Manuel Akanji', 'Nico Elvedi', 'Ricardo Rodríguez', 'Fabian Schär', 'Silvan Widmer', 'Aurèle Amenda',
+    'Granit Xhaka', 'Remo Freuler', 'Denis Zakaria', 'Michel Aebischer', 'Fabian Rieder', 'Ardon Jashari',
+    'Xherdan Shaqiri', 'Breel Embolo', 'Ruben Vargas', 'Dan Ndoye', 'Zeki Amdouni', 'Steven Zuber',
+  ],
+  'Bosnia and Herzegovina': [
+    'Nikola Vasilj', 'Ibrahim Šehić', 'Vladan Kovačević',
+    'Sead Kolašinac', 'Amar Dedić', 'Nihad Mujakić', 'Dennis Hadžikadunić', 'Adnan Kovačević', 'Eldar Ćivić',
+    'Miralem Pjanić', 'Edin Višća', 'Benjamin Tahirović', 'Gojko Cimirot', 'Amar Memić',
+    'Edin Džeko', 'Ermedin Demirović', 'Smail Prevljak', 'Haris Tabaković', 'Said Hamulić', 'Armin Gigović',
+  ],
+  'Canada': [
+    'Maxime Crépeau', 'Dayne St. Clair', 'Milan Borjan',
+    'Alphonso Davies', 'Alistair Johnston', 'Moïse Bombito', 'Derek Cornelius', 'Kamal Miller', 'Richie Laryea',
+    'Stephen Eustáquio', 'Ismaël Koné', 'Jonathan Osorio', 'Mathieu Choinière', 'Liam Fraser',
+    'Jonathan David', 'Cyle Larin', 'Tajon Buchanan', 'Jacob Shaffelburg', 'Promise David', 'Ali Ahmed',
+  ],
+  'Qatar': [
+    'Meshaal Barsham', 'Saad Al Sheeb', 'Yousef Hassan',
+    'Pedro Miguel', 'Boualem Khoukhi', 'Tarek Salman', 'Bassam Al-Rawi', 'Homam Ahmed', 'Sultan Al-Brake',
+    'Karim Boudiaf', 'Hassan Al-Haydos', 'Abdulaziz Hatem', 'Mohammed Waad', 'Jassem Gaber', 'Ahmed Fathi',
+    'Akram Afif', 'Almoez Ali', 'Yusuf Abdurisag', 'Ismaeel Mohammad', 'Mohammed Muntari', 'Khalid Muneer',
+  ],
+  'Mexico': [
+    'Guillermo Ochoa', 'Luis Malagón', 'Julio González',
+    'Jorge Sánchez', 'César Montes', 'Johan Vásquez', 'Israel Reyes', 'Jesús Gallardo', 'Gerardo Arteaga',
+    'Edson Álvarez', 'Luis Chávez', 'Carlos Rodríguez', 'Orbelín Pineda', 'Luis Romo', 'Érick Sánchez',
+    'Hirving Lozano', 'Santiago Giménez', 'Raúl Jiménez', 'Alexis Vega', 'Uriel Antuna', 'Roberto Alvarado',
+  ],
+  'South Korea': [
+    'Kim Seung-gyu', 'Jo Hyeon-woo', 'Song Bum-keun',
+    'Kim Min-jae', 'Kim Young-gwon', 'Kim Ji-soo', 'Kim Moon-hwan', 'Lee Ki-je', 'Seol Young-woo',
+    'Hwang In-beom', 'Lee Jae-sung', 'Park Yong-woo', 'Hong Hyun-seok', 'Won Du-jae', 'Jung Woo-yeong',
+    'Son Heung-min', 'Hwang Hee-chan', 'Lee Kang-in', 'Oh Hyeon-gyu', 'Cho Gue-sung', 'Jeon Jin-woo',
+  ],
 };

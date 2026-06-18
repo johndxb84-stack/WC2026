@@ -19,7 +19,7 @@ const FLAG: Record<string, string> = {
   'Ukraine': '🇺🇦', 'Romania': '🇷🇴', 'New Zealand': '🇳🇿',
   'Cabo Verde': '🇨🇻', 'Egypt': '🇪🇬', 'Iraq': '🇮🇶', 'Norway': '🇳🇴',
   'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴', 'DR Congo': '🇨🇩',
-  'Uzbekistan': '🇺🇿',
+  'Uzbekistan': '🇺🇿', 'Czechia': '🇨🇿', 'Bosnia and Herzegovina': '🇧🇦',
 };
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -30,6 +30,7 @@ type ApiFixture = {
   scheduledKickoff: string;
   venue: string | null;
   status: string;
+  playerOrder: string[] | null;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
 };
@@ -125,7 +126,6 @@ export function Dashboard() {
   const now = new Date();
   const todayKey = dateKeyInTimezone(now, TIMEZONE);
   const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
-  const todayOrder = dailyOrder(now);
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
   const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
 
@@ -166,17 +166,9 @@ export function Dashboard() {
             Prediction Arena
           </h1>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-white/50">Today&apos;s betting order</span>
-            <div className="flex items-center gap-1.5">
-              {todayOrder.map((name, i) => (
-                <span key={name} className="flex items-center gap-1.5">
-                  <span className="pill bg-white/8 text-white font-semibold">{name}</span>
-                  {i < todayOrder.length - 1 && <span className="text-flood/60">→</span>}
-                </span>
-              ))}
-            </div>
-          </div>
+          <p className="mt-3 text-sm text-white/50">
+            Each match shows its own betting order — bet in turn, top to bottom.
+          </p>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
         </header>
 
@@ -231,7 +223,7 @@ export function Dashboard() {
             <div className="grid md:grid-cols-2 gap-4 md:gap-5">
               {todayFixtures.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
-                const fixtureOrder = dailyOrder(kickoff);
+                const fixtureOrder = f.playerOrder ?? dailyOrder(kickoff);
                 const preds = toDomainPreds(data.predictions, f.id);
                 const current = currentEligiblePlayer(fixtureOrder, preds);
                 const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);

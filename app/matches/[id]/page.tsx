@@ -16,10 +16,12 @@ const FLAG: Record<string, string> = {
   'Argentina': '🇦🇷', 'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴',
   'Portugal': '🇵🇹', 'DR Congo': '🇨🇩', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croatia': '🇭🇷',
   'Ghana': '🇬🇭', 'Panama': '🇵🇦', 'Uzbekistan': '🇺🇿', 'Colombia': '🇨🇴',
+  'Czechia': '🇨🇿', 'South Africa': '🇿🇦', 'Switzerland': '🇨🇭', 'Bosnia and Herzegovina': '🇧🇦',
+  'Canada': '🇨🇦', 'Qatar': '🇶🇦', 'Mexico': '🇲🇽', 'South Korea': '🇰🇷',
 };
 
 type TeamInfo = { name: string; shortName: string | null };
-type ApiFixture = { id: string; scheduledKickoff: string; venue: string | null; status: string; homeTeam: TeamInfo; awayTeam: TeamInfo };
+type ApiFixture = { id: string; scheduledKickoff: string; venue: string | null; status: string; playerOrder: string[] | null; homeTeam: TeamInfo; awayTeam: TeamInfo };
 type ApiPrediction = {
   id: string; fixtureId: string; user: { name: string };
   predictedHomeScore90: number | null; predictedAwayScore90: number | null;
@@ -111,7 +113,7 @@ export default function MatchPage() {
   const kickoff = new Date(fixture.scheduledKickoff);
   const now = new Date();
   const isLocked = now >= kickoff;
-  const fixtureOrder = dailyOrder(kickoff);
+  const fixtureOrder = fixture.playerOrder ?? dailyOrder(kickoff);
 
   const preds = data.predictions
     .filter(p => p.fixtureId === fixture.id && p.status !== 'WAITING' && p.submittedAt)

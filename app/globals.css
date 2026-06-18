@@ -26,7 +26,11 @@ html {
 
 body {
   min-height: 100dvh;
-  background: #080412;
+  background:
+    radial-gradient(900px 500px at 15% 0%,   rgba(124, 58, 237, 0.12), transparent 60%),
+    radial-gradient(700px 400px at 88% 8%,   rgba(249, 115, 22, 0.08), transparent 55%),
+    radial-gradient(800px 600px at 50% 100%, rgba(5, 150, 105, 0.07), transparent 65%),
+    linear-gradient(180deg, #0c0918 0%, #080412 50%, #040209 100%);
   background-attachment: fixed;
   color: #f0ecff;
   font-family: var(--font-sans);
@@ -76,34 +80,34 @@ body {
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.42;
+  filter: blur(100px);
+  opacity: 0.16;
   will-change: transform, border-radius;
   transform: translateZ(0);
 }
 .blob-lavender {
   width: 700px; height: 700px;
-  background: radial-gradient(circle, #c4b5fd 0%, #7c3aed 100%);
+  background: radial-gradient(circle, #9333ea 0%, #4c1d95 100%);
   top: -20%; left: -15%;
   animation: blobMorph1 9s ease-in-out infinite, blobFloat1 14s ease-in-out infinite;
 }
 .blob-peach {
   width: 560px; height: 560px;
-  background: radial-gradient(circle, #fca5a5 0%, #f97316 100%);
+  background: radial-gradient(circle, #f97316 0%, #9a3412 100%);
   top: 25%; right: -15%;
   animation: blobMorph2 11s ease-in-out infinite, blobFloat2 17s ease-in-out infinite;
 }
 .blob-mint {
   width: 630px; height: 630px;
-  background: radial-gradient(circle, #6ee7b7 0%, #059669 100%);
+  background: radial-gradient(circle, #059669 0%, #064e3b 100%);
   bottom: -10%; left: 22%;
   animation: blobMorph3 10s ease-in-out infinite, blobFloat3 13s ease-in-out infinite;
 }
 .blob-amber {
   width: 460px; height: 460px;
-  background: radial-gradient(circle, #fde68a 0%, #d97706 100%);
+  background: radial-gradient(circle, #d97706 0%, #78350f 100%);
   bottom: 28%; left: -10%;
-  opacity: 0.28;
+  opacity: 0.10;
   animation: blobMorph1 13s ease-in-out infinite reverse, blobFloat1 20s ease-in-out infinite reverse;
 }
 

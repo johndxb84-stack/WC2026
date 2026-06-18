@@ -342,7 +342,7 @@ export function Dashboard() {
                     {/* kickoff */}
                     <div className="flex items-center justify-center gap-2 text-sm">
                       <span className="text-white/60">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
-                      {cd && !isLocked && <span className="pill bg-white/8 text-flood">{cd}</span>}
+                      {cd && !isLocked && <span className="pill bg-flood/25 text-white border border-flood/40 font-semibold">{cd}</span>}
                     </div>
 
                     {/* betting progress */}

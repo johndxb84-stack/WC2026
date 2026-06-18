@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       homePenaltyScore: body.homePenaltyScore ?? null,
       awayPenaltyScore: body.awayPenaltyScore ?? null,
       settledAt: new Date().toISOString(),
+      source: 'manual',
     };
     await writeResult(result);
     return NextResponse.json({ ok: true, result });

@@ -107,6 +107,19 @@ export function Dashboard() {
     return () => clearInterval(t);
   }, [lastSynced]);
 
+  // Nudge the server to pull fresh results from the football API while anyone
+  // is viewing. The endpoint self-throttles, so extra viewers cost nothing.
+  useEffect(() => {
+    const sync = () =>
+      fetch('/api/sync-results', { method: 'POST' })
+        .then(r => r.json())
+        .then(j => { if (j?.written > 0) load(); })
+        .catch(() => {});
+    sync();
+    const timer = setInterval(sync, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (error && !data) {
     return (
       <main className="min-h-screen p-8 flex items-center justify-center">

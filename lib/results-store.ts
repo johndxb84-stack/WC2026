@@ -16,6 +16,8 @@ export type StoredResult = {
   homePenaltyScore?: number | null;
   awayPenaltyScore?: number | null;
   settledAt: string;
+  /** 'manual' = entered by a person (protected, never overwritten by auto-sync); 'auto' = fetched from the football API */
+  source?: 'manual' | 'auto';
 };
 
 export async function readResults(): Promise<Record<string, StoredResult>> {

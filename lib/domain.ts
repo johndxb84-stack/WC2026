@@ -12,6 +12,57 @@ export function dateKeyInTimezone(date: Date, timeZone = 'Asia/Dubai') {
 export function dailyOrder(_date?: Date, playerOrder = [...defaultPlayerOrder]) {
   return [...playerOrder];
 }
+
+// 3-day rotation starting June 18, 2026, keyed to the venue's local date
+// Day 0 (June 18 local): Nicolas → Jean → Anthony
+// Day 1 (June 19 local): Jean → Anthony → Nicolas
+// Day 2 (June 20 local): Anthony → Nicolas → Jean
+const ROTATION: readonly string[][] = [
+  ['Nicolas', 'Jean', 'Anthony'],
+  ['Jean', 'Anthony', 'Nicolas'],
+  ['Anthony', 'Nicolas', 'Jean'],
+];
+const ROTATION_REFERENCE = '2026-06-18'; // day 0
+
+const VENUE_TIMEZONE: [string, string][] = [
+  ['New York', 'America/New_York'],
+  ['New Jersey', 'America/New_York'],
+  ['Philadelphia', 'America/New_York'],
+  ['Boston', 'America/New_York'],
+  ['Miami', 'America/New_York'],
+  ['Atlanta', 'America/New_York'],
+  ['Toronto', 'America/Toronto'],
+  ['Dallas', 'America/Chicago'],
+  ['Houston', 'America/Chicago'],
+  ['Kansas City', 'America/Chicago'],
+  ['Chicago', 'America/Chicago'],
+  ['Vancouver', 'America/Vancouver'],
+  ['Los Angeles', 'America/Los_Angeles'],
+  ['San Francisco', 'America/Los_Angeles'],
+  ['Seattle', 'America/Los_Angeles'],
+  ['Mexico City', 'America/Mexico_City'],
+  ['Guadalajara', 'America/Mexico_City'],
+  ['Monterrey', 'America/Monterrey'],
+];
+
+export function venueTimezone(venue: string | null): string {
+  if (venue) {
+    for (const [key, tz] of VENUE_TIMEZONE) {
+      if (venue.includes(key)) return tz;
+    }
+  }
+  return 'America/New_York'; // safe default — most WC 2026 games are Eastern
+}
+
+export function orderForVenueDate(kickoff: Date, venue: string | null): string[] {
+  const tz = venueTimezone(venue);
+  const localDateKey = dateKeyInTimezone(kickoff, tz);
+  const refMs = new Date(ROTATION_REFERENCE).getTime();
+  const localMs = new Date(localDateKey).getTime();
+  const daysDiff = Math.round((localMs - refMs) / 86_400_000);
+  const idx = ((daysDiff % 3) + 3) % 3;
+  return [...ROTATION[idx]];
+}
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }
 export function isLocked(fixture: FixtureLike, now = new Date()) { return Boolean(fixture.started) || now >= fixture.kickoff; }
 export function currentEligiblePlayer(order: string[], predictions: PredictionRecord[]) {

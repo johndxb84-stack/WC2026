@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { dailyOrder, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
+import { orderForVenueDate, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
 import { squads } from '@/lib/squads';
 import type { StoredResult } from '@/lib/results-store';
 
@@ -111,7 +111,7 @@ export default function MatchPage() {
   const kickoff = new Date(fixture.scheduledKickoff);
   const now = new Date();
   const isLocked = now >= kickoff;
-  const fixtureOrder = dailyOrder(kickoff);
+  const fixtureOrder = orderForVenueDate(kickoff, fixture.venue);
 
   const preds = data.predictions
     .filter(p => p.fixtureId === fixture.id && p.status !== 'WAITING' && p.submittedAt)

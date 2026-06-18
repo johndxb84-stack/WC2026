@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { currentEligiblePlayer, dailyOrder, dateKeyInTimezone, shouldReveal } from '@/lib/domain';
+import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, shouldReveal } from '@/lib/domain';
+import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
@@ -124,7 +125,6 @@ export function Dashboard() {
   const now = new Date();
   const todayKey = dateKeyInTimezone(now, TIMEZONE);
   const tomorrowKey = dateKeyInTimezone(new Date(now.getTime() + 24 * 60 * 60 * 1000), TIMEZONE);
-  const todayOrder = dailyOrder(now);
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
   const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
 
@@ -160,17 +160,6 @@ export function Dashboard() {
             Prediction Arena
           </h1>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-white/50">Today&apos;s betting order</span>
-            <div className="flex items-center gap-1.5">
-              {todayOrder.map((name, i) => (
-                <span key={name} className="flex items-center gap-1.5">
-                  <span className="pill bg-white/8 text-white font-semibold">{name}</span>
-                  {i < todayOrder.length - 1 && <span className="text-flood/60">→</span>}
-                </span>
-              ))}
-            </div>
-          </div>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
         </header>
 
@@ -225,7 +214,7 @@ export function Dashboard() {
             <div className="grid md:grid-cols-2 gap-4 md:gap-5">
               {todayFixtures.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
-                const fixtureOrder = dailyOrder(kickoff);
+                const fixtureOrder = orderForVenueDate(kickoff, f.venue);
                 const preds = toDomainPreds(data.predictions, f.id);
                 const current = currentEligiblePlayer(fixtureOrder, preds);
                 const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);

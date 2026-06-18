@@ -431,7 +431,12 @@ export default function MatchPage() {
 
           {result ? (
             <div className="rounded-2xl bg-gold/8 border border-gold/25 p-4 mb-4">
-              <p className="text-gold text-xs uppercase tracking-wide font-semibold mb-3">Official result</p>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-gold text-xs uppercase tracking-wide font-semibold">Official result</p>
+                {result.source === 'auto'
+                  ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto-synced</span>
+                  : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>}
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
                   <p className="text-white/45 text-xs">90-min score</p>

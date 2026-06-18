@@ -24,6 +24,12 @@ const FLAG: Record<string, string> = {
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
+function SourceBadge({ source }: { source?: 'manual' | 'auto' }) {
+  return source === 'auto'
+    ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto</span>
+    : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>;
+}
+
 type TeamInfo = { name: string; shortName: string | null; logoUrl: string | null };
 type ApiFixture = {
   id: string;
@@ -259,7 +265,10 @@ export function Dashboard() {
                     {/* top row */}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-white/40">{f.venue}</span>
-                      {statusPill}
+                      <div className="flex items-center gap-1.5">
+                        {result && <SourceBadge source={result.source} />}
+                        {statusPill}
+                      </div>
                     </div>
 
                     {/* teams */}
@@ -373,10 +382,13 @@ export function Dashboard() {
                       {/* top row */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
-                        {result
-                          ? <span className="pill bg-gold/12 text-gold border border-gold/20">Final</span>
-                          : <span className="pill bg-white/8 text-white/50">No result yet</span>
-                        }
+                        <div className="flex items-center gap-1.5">
+                          {result && <SourceBadge source={result.source} />}
+                          {result
+                            ? <span className="pill bg-gold/12 text-gold border border-gold/20">Final</span>
+                            : <span className="pill bg-white/8 text-white/50">No result yet</span>
+                          }
+                        </div>
                       </div>
 
                       {/* teams + score */}

@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { BottomNav } from '@/components/BottomNav';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
@@ -25,9 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="blob blob-mint" />
           <div className="blob blob-amber" />
         </div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="has-bottom-nav" style={{ position: 'relative', zIndex: 1 }}>
           {children}
         </div>
+        <BottomNav />
       </body>
     </html>
   );

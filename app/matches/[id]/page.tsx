@@ -4,6 +4,8 @@ import { useParams } from 'next/navigation';
 import { orderForVenueDate, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
 import { squads } from '@/lib/squads';
 import { flag } from '@/lib/flags';
+import { useIdentity } from '@/lib/useIdentity';
+import { fireConfetti } from '@/lib/confetti';
 import type { StoredResult } from '@/lib/results-store';
 
 const TIMEZONE = 'Asia/Dubai';
@@ -39,6 +41,7 @@ function ScoreInput({ value, onChange, label, flag }: { value: number; onChange:
 
 export default function MatchPage() {
   const { id } = useParams<{ id: string }>();
+  const { me, ready: idReady } = useIdentity();
   const [data, setData] = useState<DashboardData | null>(null);
 
   const [selectedPlayer, setSelectedPlayer] = useState('');
@@ -81,6 +84,11 @@ export default function MatchPage() {
     document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
+
+  // Pre-select whoever owns this device, so betting is one tap not three.
+  useEffect(() => {
+    if (idReady && me && !selectedPlayer) setSelectedPlayer(me);
+  }, [idReady, me, selectedPlayer]);
 
   if (!data) {
     return (
@@ -155,6 +163,7 @@ export default function MatchPage() {
       const json = await resp.json();
       setSubmitResult(json);
       if (json.ok) {
+        fireConfetti();
         await load();
         setHomeScore(0); setAwayScore(0); setPossession(''); setFirstGoalscorer('');
         setHasET(false); setHasPenalties(false); setHomeET(0); setAwayET(0);

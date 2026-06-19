@@ -1,7 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, shouldReveal } from '@/lib/domain';
+import { useEffect, useRef, useState } from 'react';
+import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, scorePrediction, shouldReveal } from '@/lib/domain';
 import { flag } from '@/lib/flags';
+import { useIdentity, PLAYERS, type PlayerName } from '@/lib/useIdentity';
+import { fireConfetti } from '@/lib/confetti';
 import type { StoredResult } from '@/lib/results-store';
 import type { LiveSnapshot } from '@/lib/live-store';
 
@@ -32,6 +34,12 @@ type ApiPrediction = {
   user: { name: string };
   predictedHomeScore90: number | null;
   predictedAwayScore90: number | null;
+  possession?: string | null;
+  firstGoalscorer?: string | null;
+  homeScoreExtraTime?: number | null;
+  awayScoreExtraTime?: number | null;
+  homePenaltyScore?: number | null;
+  awayPenaltyScore?: number | null;
   submittedAt: string | null;
   status: string;
   score: { totalPoints: number } | null;
@@ -59,6 +67,34 @@ function computeQuickStats(data: DashboardData) {
     if (po === ro) stats[name].correct++;
   }
   return stats;
+}
+
+function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number {
+  return scorePrediction(
+    {
+      homeScore: pred.predictedHomeScore90 ?? 0,
+      awayScore: pred.predictedAwayScore90 ?? 0,
+      possession: (pred.possession as 'HOME' | 'AWAY' | 'EQUAL' | undefined) ?? undefined,
+      firstGoalscorerId: pred.firstGoalscorer ?? null,
+      homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+      homePenaltyScore: pred.homePenaltyScore ?? null,
+      awayPenaltyScore: pred.awayPenaltyScore ?? null,
+    },
+    {
+      id: pred.fixtureId,
+      kickoff: new Date(0),
+      homeScore90: result.homeScore90,
+      awayScore90: result.awayScore90,
+      homePossession: result.homePossession,
+      awayPossession: result.awayPossession,
+      firstGoalscorerId: result.firstGoalscorer ?? null,
+      homeScoreExtraTime: result.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: result.awayScoreExtraTime ?? null,
+      homePenaltyScore: result.homePenaltyScore ?? null,
+      awayPenaltyScore: result.awayPenaltyScore ?? null,
+    },
+  ).totalPoints;
 }
 
 function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
@@ -96,6 +132,11 @@ export function Dashboard() {
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncAge, setSyncAge] = useState(0);
   const [showPast, setShowPast] = useState(true);
+  const { me, ready: idReady, choose, clear } = useIdentity();
+  const [toast, setToast] = useState<string | null>(null);
+  // Fixtures we've already celebrated for the current identity, so confetti
+  // fires once per newly-settled win — never on historical results.
+  const celebratedRef = useRef<{ forMe: PlayerName; seen: Set<string> } | null>(null);
 
   const load = () =>
     fetch('/api/predictions')
@@ -133,6 +174,53 @@ export function Dashboard() {
     const timer = setInterval(sync, 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // Celebrate when a freshly-settled match lands points for *you*. On the first
+  // pass for a given identity we "prime" the seen-set (so historical results
+  // don't all pop at once); afterwards only genuinely new wins fire confetti.
+  useEffect(() => {
+    if (!data || !me) return;
+    const storeKey = `anj:celebrated:${me}`;
+    let cache = celebratedRef.current;
+    const priming = cache === null || cache.forMe !== me;
+    if (priming) {
+      let seen: Set<string>;
+      try {
+        const raw = localStorage.getItem(storeKey);
+        seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+      } catch {
+        seen = new Set<string>();
+      }
+      cache = { forMe: me, seen };
+    }
+    const seen = cache!.seen;
+
+    let best: { pts: number; text: string } | null = null;
+    for (const f of data.fixtures) {
+      const result = data.results?.[f.id];
+      if (!result) continue;
+      if (seen.has(f.id)) continue;
+      seen.add(f.id);
+      const myPred = data.predictions.find(p => p.fixtureId === f.id && p.user.name === me && p.submittedAt);
+      if (!myPred) continue;
+      const pts = pointsForPrediction(myPred, result);
+      if (pts > 0 && (!best || pts > best.pts)) {
+        best = { pts, text: `+${pts} pts! ${f.homeTeam.name} ${result.homeScore90}–${result.awayScore90} ${f.awayTeam.name}` };
+      }
+    }
+    celebratedRef.current = cache!;
+    try { localStorage.setItem(storeKey, JSON.stringify([...seen])); } catch { /* ignore */ }
+    if (!priming && best) {
+      fireConfetti();
+      setToast(best.text);
+    }
+  }, [data, me]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   if (error && !data) {
     return (
@@ -174,6 +262,16 @@ export function Dashboard() {
     return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
+  // Matches where it's *your* turn to bet (open, not yet kicked off, you're up next).
+  const myTurnFixtures = me
+    ? upcomingFixtures.filter(f => {
+        const kickoff = new Date(f.scheduledKickoff);
+        if (now >= kickoff) return false;
+        const preds = toDomainPreds(data.predictions, f.id);
+        return currentEligiblePlayer(orderForVenueDate(kickoff, f.venue), preds) === me;
+      })
+    : [];
+
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
       <section className="mx-auto max-w-5xl space-y-8">
@@ -200,11 +298,71 @@ export function Dashboard() {
             Prediction Arena
           </h1>
 
-          <p className="mt-3 text-sm text-white/50">
-            Each match shows its own betting order — bet in turn, top to bottom.
-          </p>
+          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-white/50">
+              Each match shows its own betting order — bet in turn, top to bottom.
+            </p>
+            {idReady && me && (
+              <button
+                onClick={clear}
+                className="pill bg-flood/15 text-white border border-flood/30 hover:bg-flood/25 transition-colors shrink-0"
+                title="Switch player"
+              >
+                👤 You’re {me} · switch
+              </button>
+            )}
+          </div>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
         </header>
+
+        {/* ---------- Identity picker (first visit / after switch) ---------- */}
+        {idReady && !me && (
+          <section className="glass rounded-3xl p-6 animate-rise text-center">
+            <h2 className="text-lg font-bold">Who are you?</h2>
+            <p className="text-sm text-white/50 mt-1 mb-4">
+              We’ll remember on this phone, pre-fill your bets and tell you when it’s your turn.
+            </p>
+            <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
+              {PLAYERS.map(name => (
+                <button
+                  key={name}
+                  onClick={() => choose(name)}
+                  className="rounded-2xl py-4 font-bold bg-white/8 hover:bg-flood/20 border border-white/12 hover:border-flood/40 transition-all"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Your turn banner ---------- */}
+        {me && myTurnFixtures.length > 0 && (
+          <section className="rounded-3xl p-5 md:p-6 animate-rise border border-flood/40 bg-flood/12">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🔔</span>
+              <h2 className="font-bold text-base md:text-lg">
+                It’s your turn — {myTurnFixtures.length} match{myTurnFixtures.length > 1 ? 'es' : ''} waiting
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              {myTurnFixtures.slice(0, 6).map(f => (
+                <a
+                  key={f.id}
+                  href={`/matches/${f.id}`}
+                  className="glass-soft p-3 flex items-center justify-between gap-2 hover:bg-white/10 transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium truncate">
+                    <span>{flag(f.homeTeam.name)}</span>
+                    <span className="truncate">{f.homeTeam.name} v {f.awayTeam.name}</span>
+                    <span>{flag(f.awayTeam.name)}</span>
+                  </span>
+                  <span className="pill bg-flood/25 text-white border border-flood/40 shrink-0">Bet →</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ---------- Leaderboard ---------- */}
         <section className="animate-rise" style={{ animationDelay: '60ms' }}>
@@ -215,16 +373,20 @@ export function Dashboard() {
           <div className="grid grid-cols-3 gap-3 md:gap-4">
             {sortedPlayers.map((p, i) => {
               const isLeader = i === 0 && p.totalPoints > 0;
+              const isMe = p.name === me;
               const behind = leaderPts - p.totalPoints;
               return (
                 <div
                   key={p.name}
                   className={`relative glass rounded-2xl p-4 md:p-5 text-center overflow-hidden ${
-                    isLeader ? 'ring-1 ring-gold/40' : ''
+                    isMe ? 'ring-2 ring-flood/60' : isLeader ? 'ring-1 ring-gold/40' : ''
                   }`}
                 >
                   {isLeader && (
                     <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-gold to-transparent" />
+                  )}
+                  {isMe && (
+                    <span className="absolute top-2 right-2 pill bg-flood/25 text-white border border-flood/40 text-[0.55rem] px-2 py-0.5">You</span>
                   )}
                   <div className="text-2xl md:text-3xl">{MEDAL[i] ?? `#${i + 1}`}</div>
                   <h3 className="mt-1 text-base md:text-xl font-bold truncate">{p.name}</h3>
@@ -497,6 +659,16 @@ export function Dashboard() {
           Auto-syncs across all devices · ANJ Predictions
         </footer>
       </section>
+
+      {/* ---------- Celebration toast ---------- */}
+      {toast && (
+        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pointer-events-none">
+          <div className="glass rounded-2xl px-5 py-3 border border-gold/40 bg-gold/12 text-center animate-rise shadow-2xl">
+            <p className="text-2xl">🎉</p>
+            <p className="font-bold text-gold mt-0.5">{toast}</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

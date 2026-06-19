@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { fixtures as mockFixtures } from '@/lib/mock-data';
+import { fixtures as mockFixtures, players as mockPlayers } from '@/lib/mock-data';
+import { pushToAll } from '@/lib/push';
 import { squads } from '@/lib/squads';
 import { readResults, writeResults, type StoredResult } from '@/lib/results-store';
 import { writeLive, type LiveSnapshot } from '@/lib/live-store';
@@ -202,7 +203,25 @@ async function runSync() {
     summary.written++;
   }
 
-  if (summary.written > 0) await writeResults(updated); // one batched write
+  if (summary.written > 0) {
+    await writeResults(updated);
+    // Notify all players about each newly-settled result
+    const playerNames = mockPlayers.map(p => p.name);
+    for (const [fixtureId, result] of Object.entries(updated)) {
+      if (existing[fixtureId]) continue; // already existed before this sync
+      const fixture = [...mockFixtures].find(f => f.id === fixtureId)
+        ?? Object.values(incoming).find(f => f.id === fixtureId);
+      if (!fixture) continue;
+      const home = 'homeTeam' in fixture ? fixture.homeTeam : '';
+      const away = 'awayTeam' in fixture ? fixture.awayTeam : '';
+      await pushToAll(
+        playerNames,
+        `🏁 Result: ${home} ${result.homeScore90}–${result.awayScore90} ${away}`,
+        `Check your points on the dashboard!`,
+        '/',
+      );
+    }
+  }
   await writeLive(live);
   return summary;
 }

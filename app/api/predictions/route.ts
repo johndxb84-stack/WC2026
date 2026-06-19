@@ -5,7 +5,8 @@ import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/
 import { readResults } from '@/lib/results-store';
 import { readLive } from '@/lib/live-store';
 import { readFixtures } from '@/lib/fixtures-store';
-import { scorePrediction } from '@/lib/domain';
+import { scorePrediction, orderForVenueDate, currentEligiblePlayer } from '@/lib/domain';
+import { pushToPlayer } from '@/lib/push';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -217,7 +218,37 @@ export async function POST(request: Request) {
       awayPenaltyScore: body.awayPenaltyScore ?? null,
     };
 
-    await writeState({ predictions: [...withoutExisting, newPrediction], resetAt: state.resetAt });
+    const updatedPreds = [...withoutExisting, newPrediction];
+    await writeState({ predictions: updatedPreds, resetAt: state.resetAt });
+
+    // Fire-and-forget: notify whoever is up next for this fixture
+    (async () => {
+      try {
+        const imported = await readFixtures();
+        const allFixtures = [
+          ...mockFixtures.map(f => ({ id: f.id, kickoff: f.kickoff, venue: f.venue, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
+          ...Object.values(imported).map(f => ({ id: f.id, kickoff: new Date(f.kickoff), venue: f.venue, homeTeam: f.homeTeam, awayTeam: f.awayTeam })),
+        ];
+        const fixture = allFixtures.find(f => f.id === body.fixtureId);
+        if (!fixture) return;
+        const kickoff = fixture.kickoff instanceof Date ? fixture.kickoff : new Date(fixture.kickoff);
+        if (new Date() >= kickoff) return; // already started, no point notifying
+        const domainPreds = updatedPreds
+          .filter(p => p.fixtureId === fixture.id && p.submittedAt)
+          .map(p => ({ userName: p.userName, homeScore: p.homeScore, awayScore: p.awayScore, submittedAt: new Date(p.submittedAt) }));
+        const order = orderForVenueDate(kickoff, fixture.venue);
+        const next = currentEligiblePlayer(order, domainPreds);
+        if (next && next !== body.userName) {
+          const timeStr = kickoff.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
+          await pushToPlayer(
+            next,
+            `⚽ Your turn to bet!`,
+            `${fixture.homeTeam} vs ${fixture.awayTeam} — closes at ${timeStr} Dubai time`,
+            `/matches/${fixture.id}`,
+          );
+        }
+      } catch { /* push failures must never break the API response */ }
+    })();
 
     return NextResponse.json({ ok: true, prediction: toApiPrediction(newPrediction) });
   } catch (err) {

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, scorePrediction, shouldReveal } from '@/lib/domain';
 import { flag } from '@/lib/flags';
 import { useIdentity, PLAYERS, type PlayerName } from '@/lib/useIdentity';
+import { useNotifications } from '@/lib/useNotifications';
 import { fireConfetti } from '@/lib/confetti';
 import type { StoredResult } from '@/lib/results-store';
 import type { LiveSnapshot } from '@/lib/live-store';
@@ -133,6 +134,7 @@ export function Dashboard() {
   const [syncAge, setSyncAge] = useState(0);
   const [showPast, setShowPast] = useState(true);
   const { me, ready: idReady, choose, clear } = useIdentity();
+  const { status: notifStatus, loading: notifLoading, subscribe: notifSubscribe, unsubscribe: notifUnsubscribe } = useNotifications(me);
   const [toast, setToast] = useState<string | null>(null);
   // Fixtures we've already celebrated for the current identity, so confetti
   // fires once per newly-settled win — never on historical results.
@@ -303,13 +305,34 @@ export function Dashboard() {
               Each match shows its own betting order — bet in turn, top to bottom.
             </p>
             {idReady && me && (
-              <button
-                onClick={clear}
-                className="pill bg-flood/15 text-white border border-flood/30 hover:bg-flood/25 transition-colors shrink-0"
-                title="Switch player"
-              >
-                👤 You’re {me} · switch
-              </button>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {notifStatus === 'default' && (
+                  <button
+                    onClick={notifSubscribe}
+                    disabled={notifLoading}
+                    className="pill bg-white/8 text-white/70 border border-white/12 hover:bg-white/15 transition-colors shrink-0"
+                    title="Enable push notifications"
+                  >
+                    {notifLoading ? '…' : '🔔 Notify me'}
+                  </button>
+                )}
+                {notifStatus === 'subscribed' && (
+                  <button
+                    onClick={notifUnsubscribe}
+                    disabled={notifLoading}
+                    className="pill bg-grass/10 text-grass border border-grass/20 hover:bg-grass/20 transition-colors shrink-0"
+                  >
+                    🔔 Notifs on
+                  </button>
+                )}
+                <button
+                  onClick={clear}
+                  className="pill bg-flood/15 text-white border border-flood/30 hover:bg-flood/25 transition-colors shrink-0"
+                  title="Switch player"
+                >
+                  👤 {me} · switch
+                </button>
+              </div>
             )}
           </div>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
@@ -320,7 +343,7 @@ export function Dashboard() {
           <section className="glass rounded-3xl p-6 animate-rise text-center">
             <h2 className="text-lg font-bold">Who are you?</h2>
             <p className="text-sm text-white/50 mt-1 mb-4">
-              We’ll remember on this phone, pre-fill your bets and tell you when it’s your turn.
+              We'll remember on this phone, pre-fill your bets and tell you when it's your turn.
             </p>
             <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
               {PLAYERS.map(name => (
@@ -342,7 +365,7 @@ export function Dashboard() {
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xl">🔔</span>
               <h2 className="font-bold text-base md:text-lg">
-                It’s your turn — {myTurnFixtures.length} match{myTurnFixtures.length > 1 ? 'es' : ''} waiting
+                It's your turn — {myTurnFixtures.length} match{myTurnFixtures.length > 1 ? 'es' : ''} waiting
               </h2>
             </div>
             <div className="grid sm:grid-cols-2 gap-2.5">

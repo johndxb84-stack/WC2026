@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { scorePrediction } from '@/lib/domain';
 import { flag } from '@/lib/flags';
 import type { StoredResult } from '@/lib/results-store';
@@ -103,6 +103,156 @@ function computeStats(data: Data): PlayerStat[] {
   return [...base.values()].sort((a, b) => b.totalPoints - a.totalPoints);
 }
 
+// Stable colour per player so chart lines are always recognisable
+const PLAYER_COLOR: Record<string, string> = {
+  Anthony: '#a78bfa',
+  Nicolas: '#34d399',
+  Jean: '#fbbf24',
+};
+const FALLBACK_COLORS = ['#a78bfa', '#34d399', '#fbbf24', '#f87171'];
+
+type RacePoint = { matchIdx: number; home: string; away: string; cumPts: number };
+
+function buildRace(data: Data): Map<string, RacePoint[]> {
+  const settled = data.fixtures
+    .filter(f => data.results?.[f.id])
+    .sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
+
+  const cumulative: Record<string, number> = {};
+  for (const p of data.players) cumulative[p.name] = 0;
+
+  const series = new Map<string, RacePoint[]>();
+  for (const p of data.players) series.set(p.name, [{ matchIdx: 0, home: '', away: '', cumPts: 0 }]);
+
+  settled.forEach((f, i) => {
+    const result = data.results![f.id];
+    const fx = {
+      id: f.id, kickoff: new Date(f.scheduledKickoff),
+      homeScore90: result.homeScore90, awayScore90: result.awayScore90,
+      homePossession: result.homePossession, awayPossession: result.awayPossession,
+      firstGoalscorerId: result.firstGoalscorer ?? null,
+      homeScoreExtraTime: result.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: result.awayScoreExtraTime ?? null,
+      homePenaltyScore: result.homePenaltyScore ?? null,
+      awayPenaltyScore: result.awayPenaltyScore ?? null,
+    };
+    for (const pred of data.predictions) {
+      if (pred.fixtureId !== f.id || !pred.submittedAt) continue;
+      const name = pred.user.name;
+      if (!(name in cumulative)) continue;
+      const { totalPoints } = scorePrediction({
+        homeScore: pred.predictedHomeScore90 ?? 0,
+        awayScore: pred.predictedAwayScore90 ?? 0,
+        possession: pred.possession as 'HOME' | 'AWAY' | 'EQUAL' | undefined,
+        firstGoalscorerId: pred.firstGoalscorer ?? null,
+        homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
+        awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+        homePenaltyScore: pred.homePenaltyScore ?? null,
+        awayPenaltyScore: pred.awayPenaltyScore ?? null,
+      }, fx);
+      cumulative[name] += totalPoints;
+    }
+    for (const p of data.players) {
+      series.get(p.name)!.push({ matchIdx: i + 1, home: f.homeTeam.name, away: f.awayTeam.name, cumPts: cumulative[p.name] });
+    }
+  });
+
+  return series;
+}
+
+function RaceChart({ data }: { data: Data }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
+
+  const series = buildRace(data);
+  if ([...series.values()].every(pts => pts.length < 2)) return null;
+
+  const W = 600, H = 220;
+  const PAD = { top: 24, right: 16, bottom: 36, left: 32 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const totalMatches = Math.max(...[...series.values()].map(s => s.length - 1), 1);
+  const maxPts = Math.max(...[...series.values()].flatMap(s => s.map(p => p.cumPts)), 1);
+
+  const sx = (i: number) => PAD.left + (i / totalMatches) * cW;
+  const sy = (v: number) => PAD.top + cH - (v / maxPts) * cH;
+
+  const toD = (pts: RacePoint[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.matchIdx).toFixed(1)},${sy(p.cumPts).toFixed(1)}`).join(' ');
+
+  const yTicks = [0, 0.5, 1].map(t => Math.round(maxPts * t));
+
+  return (
+    <div className="glass rounded-3xl p-5 animate-rise" style={{ animationDelay: '70ms' }}>
+      <h2 className="font-bold text-base mb-1">Points Race</h2>
+      <p className="text-xs text-white/40 mb-4">Cumulative match points per player across settled games</p>
+      <div className="relative" onMouseLeave={() => setTooltip(null)}>
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
+          {/* horizontal grid */}
+          {yTicks.map(v => (
+            <g key={v}>
+              <line x1={PAD.left} y1={sy(v)} x2={W - PAD.right} y2={sy(v)}
+                stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray={v === 0 ? '0' : '4 4'} />
+              <text x={PAD.left - 5} y={sy(v) + 4} textAnchor="end"
+                fill="rgba(255,255,255,0.3)" fontSize={9}>{v}</text>
+            </g>
+          ))}
+
+          {/* lines */}
+          {[...series.entries()].map(([name, pts], pi) => {
+            const color = PLAYER_COLOR[name] ?? FALLBACK_COLORS[pi % FALLBACK_COLORS.length];
+            return (
+              <g key={name}>
+                <path d={toD(pts)} fill="none" stroke={color} strokeWidth={2.5}
+                  strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+                {pts.slice(1).map((p, i) => (
+                  <circle key={i} cx={sx(p.matchIdx)} cy={sy(p.cumPts)} r={4}
+                    fill={color} stroke="#080412" strokeWidth={1.5}
+                    className="cursor-pointer"
+                    onMouseEnter={e => {
+                      const svg = svgRef.current;
+                      if (!svg) return;
+                      const rect = svg.getBoundingClientRect();
+                      const cx2 = rect.left + (sx(p.matchIdx) / W) * rect.width;
+                      const cy2 = rect.top + (sy(p.cumPts) / H) * rect.height;
+                      setTooltip({ x: cx2 - rect.left, y: cy2 - rect.top - 36, label: `${name}: ${p.cumPts} pts\n${p.home} v ${p.away}` });
+                    }}
+                  />
+                ))}
+                {/* name label at last point */}
+                {(() => {
+                  const last = pts[pts.length - 1];
+                  return (
+                    <text x={sx(last.matchIdx) + 6} y={sy(last.cumPts) + 4}
+                      fill={color} fontSize={10} fontWeight={700}>{name}</text>
+                  );
+                })()}
+              </g>
+            );
+          })}
+
+          {/* x-axis match labels */}
+          {[...([...series.values()][0] ?? [])].slice(1).map((p, i) => (
+            totalMatches <= 12 || i % Math.ceil(totalMatches / 8) === 0 ? (
+              <text key={i} x={sx(p.matchIdx)} y={H - 4} textAnchor="middle"
+                fill="rgba(255,255,255,0.25)" fontSize={8}>{p.matchIdx}</text>
+            ) : null
+          ))}
+        </svg>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div className="absolute pointer-events-none bg-black/80 border border-white/15 rounded-xl px-3 py-2 text-xs text-white whitespace-pre z-10"
+            style={{ left: tooltip.x, top: tooltip.y, transform: 'translateX(-50%)' }}>
+            {tooltip.label}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="glass-soft p-3 text-center">
@@ -183,6 +333,9 @@ export default function StatsPage() {
                 <p className="text-grass text-sm">{hottest?.streak} in a row scoring</p>
               </div>
             </section>
+
+            {/* points race chart */}
+            <RaceChart data={data} />
 
             {/* per-player breakdown */}
             <section className="space-y-4 animate-rise" style={{ animationDelay: '90ms' }}>

@@ -163,6 +163,7 @@ export default function MatchPage() {
       const json = await resp.json();
       setSubmitResult(json);
       if (json.ok) {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([18, 40, 22]);
         fireConfetti();
         await load();
         setHomeScore(0); setAwayScore(0); setPossession(''); setFirstGoalscorer('');

@@ -127,12 +127,35 @@ function countdown(kickoff: Date, now: Date) {
   return `in ${m}m`;
 }
 
+function countdownHMS(kickoff: Date, now: Date) {
+  const diff = kickoff.getTime() - now.getTime();
+  if (diff <= 0) return null;
+  return {
+    d: Math.floor(diff / 86_400_000),
+    h: Math.floor((diff % 86_400_000) / 3_600_000),
+    m: Math.floor((diff % 3_600_000) / 60_000),
+    s: Math.floor((diff % 60_000) / 1000),
+  };
+}
+
+function TimeCell({ v, label }: { v: number; label: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <span className="tabular-nums text-xl md:text-2xl font-black bg-flood/15 border border-flood/30 rounded-xl px-2 md:px-2.5 py-1.5 min-w-[2.3rem] text-center">
+        {String(v).padStart(2, '0')}
+      </span>
+      <span className="text-[0.5rem] md:text-[0.55rem] uppercase tracking-wide text-white/40 mt-1">{label}</span>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncAge, setSyncAge] = useState(0);
   const [showPast, setShowPast] = useState(true);
+  const [, setTick] = useState(0); // 1Hz re-render to drive the live countdown
   const { me, ready: idReady, choose, clear } = useIdentity();
   const { status: notifStatus, loading: notifLoading, subscribe: notifSubscribe, unsubscribe: notifUnsubscribe } = useNotifications(me);
   const [toast, setToast] = useState<string | null>(null);
@@ -160,6 +183,7 @@ export function Dashboard() {
   useEffect(() => {
     const t = setInterval(() => {
       if (lastSynced) setSyncAge(Math.floor((Date.now() - lastSynced.getTime()) / 1000));
+      setTick(n => n + 1);
     }, 1000);
     return () => clearInterval(t);
   }, [lastSynced]);
@@ -233,9 +257,20 @@ export function Dashboard() {
   }
   if (!data) {
     return (
-      <main className="min-h-screen p-8 flex flex-col items-center justify-center gap-3">
-        <div className="live-dot" />
-        <p className="text-white/60">Loading the arena…</p>
+      <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+        <section className="mx-auto max-w-5xl space-y-8">
+          <div className="skeleton h-40 rounded-3xl" />
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
+            <div className="skeleton h-36 rounded-2xl" />
+            <div className="skeleton h-36 rounded-2xl" />
+            <div className="skeleton h-36 rounded-2xl" />
+          </div>
+          <div className="grid md:grid-cols-2 gap-4 md:gap-5">
+            <div className="skeleton h-64 rounded-3xl" />
+            <div className="skeleton h-64 rounded-3xl" />
+          </div>
+          <p className="text-center text-white/40 text-sm">Loading the arena…</p>
+        </section>
       </main>
     );
   }
@@ -264,6 +299,9 @@ export function Dashboard() {
     return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
+  // The very next match that hasn't kicked off yet — drives the hero countdown.
+  const nextFixture = upcomingFixtures.find(f => new Date(f.scheduledKickoff).getTime() > now.getTime());
+
   // Matches where it's *your* turn to bet (open, not yet kicked off, you're up next).
   const myTurnFixtures = me
     ? upcomingFixtures.filter(f => {
@@ -279,7 +317,7 @@ export function Dashboard() {
       <section className="mx-auto max-w-5xl space-y-8">
 
         {/* ---------- Hero ---------- */}
-        <header className="glass rounded-3xl p-6 md:p-9 animate-rise">
+        <header id="you" className="glass rounded-3xl p-6 md:p-9 animate-rise scroll-mt-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-flood uppercase tracking-[.3em] text-xs font-semibold">World Cup 2026</p>
             <div className="flex items-center gap-2">
@@ -337,6 +375,36 @@ export function Dashboard() {
           </div>
           {error && <p className="mt-3 text-gold text-sm">{error}</p>}
         </header>
+
+        {/* ---------- Next kickoff countdown ---------- */}
+        {nextFixture && (() => {
+          const k = new Date(nextFixture.scheduledKickoff);
+          const c = countdownHMS(k, now);
+          if (!c) return null;
+          return (
+            <section className="glass rounded-3xl p-5 md:p-6 animate-rise lift" style={{ animationDelay: '30ms' }}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-[0.7rem] uppercase tracking-[.25em] text-flood font-semibold">Next kickoff</p>
+                  <div className="mt-1.5 flex items-center gap-2 text-base md:text-lg font-bold">
+                    <span>{flag(nextFixture.homeTeam.name)}</span>
+                    <span className="truncate">{nextFixture.homeTeam.name} <span className="text-white/40">v</span> {nextFixture.awayTeam.name}</span>
+                    <span>{flag(nextFixture.awayTeam.name)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-white/45">
+                    {formatKickoff(k, todayKey, tomorrowKey)}{nextFixture.venue ? ` · ${nextFixture.venue}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {c.d > 0 && <TimeCell v={c.d} label="days" />}
+                  <TimeCell v={c.h} label="hrs" />
+                  <TimeCell v={c.m} label="min" />
+                  <TimeCell v={c.s} label="sec" />
+                </div>
+              </div>
+            </section>
+          );
+        })()}
 
         {/* ---------- Identity picker (first visit / after switch) ---------- */}
         {idReady && !me && (
@@ -401,8 +469,8 @@ export function Dashboard() {
               return (
                 <div
                   key={p.name}
-                  className={`relative glass rounded-2xl p-4 md:p-5 text-center overflow-hidden ${
-                    isMe ? 'ring-2 ring-flood/60' : isLeader ? 'ring-1 ring-gold/40' : ''
+                  className={`relative glass lift rounded-2xl p-4 md:p-5 text-center overflow-hidden ${
+                    isMe ? 'ring-2 ring-flood/60' : isLeader ? 'ring-1 ring-gold/40 leader-glow' : ''
                   }`}
                 >
                   {isLeader && (
@@ -436,7 +504,7 @@ export function Dashboard() {
         {/* ---------- Stats & History ---------- */}
         <a
           href="/stats"
-          className="glass rounded-2xl p-4 md:p-5 flex items-center justify-between hover:bg-white/8 transition-colors animate-rise"
+          className="glass lift rounded-2xl p-4 md:p-5 flex items-center justify-between hover:bg-white/8 transition-colors animate-rise"
           style={{ animationDelay: '90ms' }}
         >
           <div>
@@ -484,7 +552,7 @@ export function Dashboard() {
                 }
 
                 return (
-                  <article key={f.id} className="glass rounded-3xl p-5 flex flex-col gap-4">
+                  <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4">
                     {/* top row */}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-white/40">{f.venue}</span>
@@ -614,7 +682,7 @@ export function Dashboard() {
                   const result = data.results?.[f.id];
 
                   return (
-                    <article key={f.id} className="glass rounded-3xl p-5 flex flex-col gap-4 opacity-90">
+                    <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4 opacity-90">
                       {/* top row */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>

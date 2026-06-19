@@ -157,6 +157,13 @@ function buildRace(data: Data): Map<string, RacePoint[]> {
     }
   });
 
+  // Shift every line up by each player's base points so the race reflects the
+  // full leaderboard total (base + game points), ending exactly on their total.
+  for (const p of data.players) {
+    const base = p.totalPoints - (cumulative[p.name] ?? 0);
+    for (const point of series.get(p.name)!) point.cumPts += base;
+  }
+
   return series;
 }
 
@@ -186,7 +193,7 @@ function RaceChart({ data }: { data: Data }) {
   return (
     <div className="glass rounded-3xl p-5 animate-rise" style={{ animationDelay: '70ms' }}>
       <h2 className="font-bold text-base mb-1">Points Race</h2>
-      <p className="text-xs text-white/40 mb-4">Cumulative match points per player across settled games</p>
+      <p className="text-xs text-white/40 mb-4">Cumulative total points per player across settled games</p>
       <div className="relative" onMouseLeave={() => setTooltip(null)}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
           {/* horizontal grid */}

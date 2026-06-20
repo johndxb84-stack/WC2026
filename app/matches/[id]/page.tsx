@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { orderForVenueDate, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
+import { fixtureOrder, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
 import { squads } from '@/lib/squads';
 import { flag } from '@/lib/flags';
 import { useIdentity } from '@/lib/useIdentity';
@@ -112,7 +112,7 @@ export default function MatchPage() {
   const kickoff = new Date(fixture.scheduledKickoff);
   const now = new Date();
   const isLocked = now >= kickoff;
-  const fixtureOrder = orderForVenueDate(kickoff, fixture.venue);
+  const betOrder = fixtureOrder(kickoff, fixture.venue, fixture.homeTeam.name, fixture.awayTeam.name);
 
   const preds = data.predictions
     .filter(p => p.fixtureId === fixture.id && p.status !== 'WAITING' && p.submittedAt)
@@ -130,8 +130,8 @@ export default function MatchPage() {
       forfeited: p.status === 'FORFEITED',
     }));
 
-  const current = currentEligiblePlayer(fixtureOrder, preds);
-  const reveal = shouldReveal(fixtureOrder, preds, { id: fixture.id, kickoff }, now);
+  const current = currentEligiblePlayer(betOrder, preds);
+  const reveal = shouldReveal(betOrder, preds, { id: fixture.id, kickoff }, now);
   const result = data.results?.[fixture.id];
 
   const homeSquad = squads[fixture.homeTeam.name] ?? [];
@@ -255,7 +255,7 @@ export default function MatchPage() {
           <div className="mt-5 glass-soft p-4">
             <p className="text-xs text-white/45 uppercase tracking-wide mb-3">Betting order</p>
             <div className="flex items-center justify-between gap-2">
-              {fixtureOrder.map((name, i) => {
+              {betOrder.map((name, i) => {
                 const pred = preds.find(p => p.userName === name);
                 const isCurrentTurn = name === current && !isLocked;
                 return (
@@ -272,7 +272,7 @@ export default function MatchPage() {
                       </span>
                       <span className={`text-xs ${isCurrentTurn ? 'text-flood font-semibold' : 'text-white/50'}`}>{name}</span>
                     </div>
-                    {i < fixtureOrder.length - 1 && <span className="text-white/20 -mt-5">→</span>}
+                    {i < betOrder.length - 1 && <span className="text-white/20 -mt-5">→</span>}
                   </div>
                 );
               })}
@@ -480,7 +480,7 @@ export default function MatchPage() {
 
           {reveal ? (
             <div className="space-y-2">
-              {fixtureOrder.map(name => {
+              {betOrder.map(name => {
                 const pred = preds.find(p => p.userName === name);
                 if (!pred) {
                   return (

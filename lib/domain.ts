@@ -1,3 +1,5 @@
+import { customFixtureOrder } from './fixture-overrides';
+
 export const defaultPlayerOrder = ['Anthony', 'Nicolas', 'Jean'] as const;
 export const referenceRotationDate = '2026-06-15';
 export type Outcome = 'HOME' | 'AWAY' | 'DRAW';
@@ -62,6 +64,12 @@ export function orderForVenueDate(kickoff: Date, venue: string | null): string[]
   const daysDiff = Math.round((localMs - refMs) / 86_400_000);
   const idx = ((daysDiff % 3) + 3) % 3;
   return [...ROTATION[idx]];
+}
+
+// Use this everywhere instead of calling orderForVenueDate directly.
+// Checks for a hardcoded per-match override first, then falls back to rotation.
+export function fixtureOrder(kickoff: Date, venue: string | null, homeTeam: string, awayTeam: string): string[] {
+  return customFixtureOrder(homeTeam, awayTeam) ?? orderForVenueDate(kickoff, venue);
 }
 
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }

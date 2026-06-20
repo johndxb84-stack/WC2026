@@ -5,7 +5,7 @@ import { redisCommand, redisPersistenceConfigured, redisLastError } from '@/lib/
 import { readResults } from '@/lib/results-store';
 import { readLive } from '@/lib/live-store';
 import { readFixtures } from '@/lib/fixtures-store';
-import { scorePrediction, orderForVenueDate, currentEligiblePlayer } from '@/lib/domain';
+import { scorePrediction, fixtureOrder, currentEligiblePlayer } from '@/lib/domain';
 import { pushToPlayer } from '@/lib/push';
 
 export const runtime = 'nodejs';
@@ -236,7 +236,7 @@ export async function POST(request: Request) {
         const domainPreds = updatedPreds
           .filter(p => p.fixtureId === fixture.id && p.submittedAt)
           .map(p => ({ userName: p.userName, homeScore: p.homeScore, awayScore: p.awayScore, submittedAt: new Date(p.submittedAt) }));
-        const order = orderForVenueDate(kickoff, fixture.venue);
+        const order = fixtureOrder(kickoff, fixture.venue, fixture.homeTeam, fixture.awayTeam);
         const next = currentEligiblePlayer(order, domainPreds);
         if (next && next !== body.userName) {
           const timeStr = kickoff.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });

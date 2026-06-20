@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { currentEligiblePlayer, dateKeyInTimezone, orderForVenueDate, scorePrediction, shouldReveal } from '@/lib/domain';
+import { currentEligiblePlayer, dateKeyInTimezone, fixtureOrder, scorePrediction, shouldReveal } from '@/lib/domain';
 import { flag } from '@/lib/flags';
 import { useIdentity, PLAYERS, type PlayerName } from '@/lib/useIdentity';
 import { useNotifications } from '@/lib/useNotifications';
@@ -308,7 +308,7 @@ export function Dashboard() {
         const kickoff = new Date(f.scheduledKickoff);
         if (now >= kickoff) return false;
         const preds = toDomainPreds(data.predictions, f.id);
-        return currentEligiblePlayer(orderForVenueDate(kickoff, f.venue), preds) === me;
+        return currentEligiblePlayer(fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name), preds) === me;
       })
     : [];
 
@@ -530,10 +530,10 @@ export function Dashboard() {
             <div className="grid md:grid-cols-2 gap-4 md:gap-5">
               {upcomingFixtures.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
-                const fixtureOrder = orderForVenueDate(kickoff, f.venue);
+                const betOrder = fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name);
                 const preds = toDomainPreds(data.predictions, f.id);
-                const current = currentEligiblePlayer(fixtureOrder, preds);
-                const reveal = shouldReveal(fixtureOrder, preds, { id: f.id, kickoff }, now);
+                const current = currentEligiblePlayer(betOrder, preds);
+                const reveal = shouldReveal(betOrder, preds, { id: f.id, kickoff }, now);
                 const isLocked = now >= kickoff;
                 const result = data.results?.[f.id];
                 const live = !result ? data.live?.[f.id] : undefined;
@@ -601,7 +601,7 @@ export function Dashboard() {
                     {/* betting progress */}
                     <div className="glass-soft p-3">
                       <div className="flex items-center justify-between gap-2">
-                        {fixtureOrder.map(name => {
+                        {betOrder.map(name => {
                           const hasBet = preds.some(p => p.userName === name);
                           const isCurrent = name === current && !isLocked;
                           return (

@@ -335,3 +335,15 @@ input[type="number"] { -moz-appearance: textfield; }
 @media (max-width: 767px) {
   .has-bottom-nav { padding-bottom: 4.75rem; }
 }
+
+/* ---------- Score reveal (flip-in animation when a result first lands) ---------- */
+@keyframes scoreReveal {
+  0%   { opacity: 0; transform: translateY(-8px) scale(0.82); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0)     scale(1);    filter: blur(0);   }
+}
+.score-reveal {
+  animation: scoreReveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .score-reveal { animation: none !important; }
+}

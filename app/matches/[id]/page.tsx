@@ -57,6 +57,7 @@ export default function MatchPage() {
   const [awayPenalty, setAwayPenalty] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; reason?: string } | null>(null);
+  const [editMode, setEditMode] = useState(false);
 
   const [showResultForm, setShowResultForm] = useState(false);
   const [rHome90, setRHome90] = useState(0);
@@ -90,6 +91,12 @@ export default function MatchPage() {
     if (idReady && me && !selectedPlayer) setSelectedPlayer(me);
   }, [idReady, me, selectedPlayer]);
 
+  // Reset edit mode when switching player selection.
+  useEffect(() => {
+    setEditMode(false);
+    setSubmitResult(null);
+  }, [selectedPlayer]);
+
   if (!data) {
     return (
       <main className="min-h-screen p-8 flex flex-col items-center justify-center gap-3">
@@ -112,6 +119,8 @@ export default function MatchPage() {
   const kickoff = new Date(fixture.scheduledKickoff);
   const now = new Date();
   const isLocked = now >= kickoff;
+  const minutesUntilKickoff = (kickoff.getTime() - now.getTime()) / 60_000;
+  const canEdit = !isLocked && minutesUntilKickoff > 30;
   const betOrder = fixtureOrder(kickoff, fixture.venue, fixture.homeTeam.name, fixture.awayTeam.name);
 
   const preds = data.predictions
@@ -138,6 +147,39 @@ export default function MatchPage() {
   const awaySquad = squads[fixture.awayTeam.name] ?? [];
   const homeFlag = flag(fixture.homeTeam.name);
   const awayFlag = flag(fixture.awayTeam.name);
+
+  const handleEnterEditMode = () => {
+    if (!selectedPlayer || !data) return;
+    const existing = data.predictions.find(
+      p => p.fixtureId === id && p.user.name === selectedPlayer && p.submittedAt
+    );
+    if (existing) {
+      setHomeScore(existing.predictedHomeScore90 ?? 0);
+      setAwayScore(existing.predictedAwayScore90 ?? 0);
+      setPossession(existing.possession ?? '');
+      setFirstGoalscorer(existing.firstGoalscorer ?? '');
+      if (existing.homeScoreExtraTime != null) {
+        setHasET(true);
+        setHomeET(existing.homeScoreExtraTime);
+        setAwayET(existing.awayScoreExtraTime ?? 0);
+      } else {
+        setHasET(false);
+        setHomeET(0);
+        setAwayET(0);
+      }
+      if (existing.homePenaltyScore != null) {
+        setHasPenalties(true);
+        setHomePenalty(existing.homePenaltyScore);
+        setAwayPenalty(existing.awayPenaltyScore ?? 0);
+      } else {
+        setHasPenalties(false);
+        setHomePenalty(0);
+        setAwayPenalty(0);
+      }
+    }
+    setEditMode(true);
+    setSubmitResult(null);
+  };
 
   const handleBet = async (e: FormEvent) => {
     e.preventDefault();
@@ -170,6 +212,7 @@ export default function MatchPage() {
         setHasET(false); setHasPenalties(false); setHomeET(0); setAwayET(0);
         setHomePenalty(0); setAwayPenalty(0);
         setSelectedPlayer('');
+        setEditMode(false);
       }
     } catch {
       setSubmitResult({ ok: false, reason: 'Network error. Please try again.' });
@@ -232,7 +275,7 @@ export default function MatchPage() {
             </div>
             <div className="px-1 text-center">
               {result ? (
-                <div className="text-3xl md:text-4xl font-black tabular-nums">
+                <div className="text-3xl md:text-4xl font-black tabular-nums score-reveal">
                   {result.homeScore90}<span className="text-white/30 mx-1.5">–</span>{result.awayScore90}
                 </div>
               ) : (
@@ -317,13 +360,31 @@ export default function MatchPage() {
               </div>
             </div>
 
-            {selectedPlayer && alreadyBet && (
-              <div className="rounded-2xl bg-grass/10 border border-grass/25 p-4 text-center">
-                <p className="text-grass font-semibold">✓ {selectedPlayer} already placed a bet for this match.</p>
+            {/* Already bet — within edit window */}
+            {selectedPlayer && alreadyBet && canEdit && !editMode && (
+              <div className="rounded-2xl bg-grass/10 border border-grass/25 p-4 flex items-center justify-between gap-3">
+                <p className="text-grass font-semibold text-sm">✓ {selectedPlayer} already placed a bet.</p>
+                <button
+                  type="button"
+                  onClick={handleEnterEditMode}
+                  className="pill bg-flood/20 text-flood border border-flood/35 hover:bg-flood/30 transition-colors shrink-0"
+                >
+                  ✏️ Edit bet
+                </button>
               </div>
             )}
 
-            {selectedPlayer && !alreadyBet && !isTurn && (
+            {/* Already bet — locked or outside edit window */}
+            {selectedPlayer && alreadyBet && !canEdit && !editMode && (
+              <div className="rounded-2xl bg-grass/10 border border-grass/25 p-4 text-center">
+                <p className="text-grass font-semibold">✓ {selectedPlayer} already placed a bet for this match.</p>
+                {!isLocked && minutesUntilKickoff <= 30 && (
+                  <p className="text-xs text-white/40 mt-1">Edit window closes 30 minutes before kickoff.</p>
+                )}
+              </div>
+            )}
+
+            {selectedPlayer && !alreadyBet && !isTurn && !editMode && (
               <div className="rounded-2xl bg-gold/10 border border-gold/25 p-4 text-center">
                 <p className="text-gold">
                   It&apos;s not {selectedPlayer}&apos;s turn yet.
@@ -332,8 +393,20 @@ export default function MatchPage() {
               </div>
             )}
 
-            {selectedPlayer && !alreadyBet && isTurn && (
+            {selectedPlayer && ((!alreadyBet && isTurn) || editMode) && (
               <form onSubmit={handleBet} className="space-y-4">
+                {editMode && (
+                  <div className="rounded-2xl bg-flood/10 border border-flood/25 p-3 flex items-center justify-between gap-2">
+                    <p className="text-flood text-sm font-semibold">✏️ Editing {selectedPlayer}&apos;s bet</p>
+                    <button
+                      type="button"
+                      onClick={() => setEditMode(false)}
+                      className="text-xs text-white/45 hover:text-white/70 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 {/* Score */}
                 <div className="glass-soft p-4">
                   <p className="text-xs text-white/45 uppercase tracking-wide mb-4 text-center">90-minute score</p>
@@ -409,7 +482,7 @@ export default function MatchPage() {
                 )}
 
                 <button type="submit" disabled={submitting} className="btn btn-primary w-full py-3.5 text-base">
-                  {submitting ? 'Submitting…' : `Submit ${selectedPlayer}'s bet`}
+                  {submitting ? 'Submitting…' : editMode ? `Update ${selectedPlayer}'s bet` : `Submit ${selectedPlayer}'s bet`}
                 </button>
 
                 <p className="text-center text-xs text-white/40 leading-relaxed">

@@ -270,6 +270,23 @@ function Stat({ label, value, sub }: { label: string; value: string | number; su
   );
 }
 
+function AccuracyBar({ label, value, count, color }: { label: string; value: number; count: string; color: string }) {
+  return (
+    <div>
+      <div className="flex justify-between mb-1 text-xs">
+        <span className="text-white/55">{label}</span>
+        <span className="text-white/50">{count} · <span className="font-bold text-white/80">{Math.round(value * 100)}%</span></span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden bg-white/8">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.round(value * 100)}%`, backgroundColor: color, transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const [data, setData] = useState<Data | null>(null);
 
@@ -373,8 +390,57 @@ export default function StatsPage() {
               ))}
             </section>
 
+            {/* accuracy breakdown */}
+            <section className="animate-rise" style={{ animationDelay: '120ms' }}>
+              <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold mb-3 px-1">Accuracy Breakdown</h2>
+              <div className="grid md:grid-cols-3 gap-4">
+                {stats.map(s => {
+                  const color = PLAYER_COLOR[s.name] ?? FALLBACK_COLORS[0];
+                  return (
+                    <div key={s.name} className="glass rounded-2xl p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <h3 className="font-bold text-sm">{s.name}</h3>
+                        <span className="ml-auto text-xs text-white/40">{s.settled} games</span>
+                      </div>
+                      <div className="space-y-3">
+                        <AccuracyBar
+                          label="Outcome"
+                          value={s.settled > 0 ? s.correct / s.settled : 0}
+                          count={`${s.correct}/${s.settled}`}
+                          color="#a78bfa"
+                        />
+                        <AccuracyBar
+                          label="Exact Score"
+                          value={s.settled > 0 ? s.exact / s.settled : 0}
+                          count={`${s.exact}/${s.settled}`}
+                          color="#fbbf24"
+                        />
+                        <AccuracyBar
+                          label="Possession"
+                          value={s.settled > 0 ? s.possession / s.settled : 0}
+                          count={`${s.possession}/${s.settled}`}
+                          color="#34d399"
+                        />
+                        <AccuracyBar
+                          label="First Scorer"
+                          value={s.settled > 0 ? s.scorer / s.settled : 0}
+                          count={`${s.scorer}/${s.settled}`}
+                          color="#f87171"
+                        />
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-white/8 flex justify-between text-xs">
+                        <span className="text-white/40">Avg per match</span>
+                        <span className="font-bold">{s.settled > 0 ? (s.gamePoints / s.settled).toFixed(1) : '—'} pts</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
             {/* recent results */}
-            <section className="animate-rise" style={{ animationDelay: '140ms' }}>
+            <section className="animate-rise" style={{ animationDelay: '160ms' }}>
               <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold mb-3 px-1">Recent results</h2>
               <div className="space-y-2">
                 {recent.map(f => {

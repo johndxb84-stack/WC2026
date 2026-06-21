@@ -12,6 +12,11 @@ const TIMEZONE = 'Asia/Dubai';
 const POLL_MS = 10_000;
 
 const MEDAL = ['🥇', '🥈', '🥉'];
+const PLAYER_COLORS: Record<string, string> = {
+  Anthony: '#a78bfa',
+  Nicolas: '#34d399',
+  Jean: '#fbbf24',
+};
 
 function SourceBadge({ source }: { source?: 'manual' | 'auto' }) {
   return source === 'auto'
@@ -24,6 +29,7 @@ type ApiFixture = {
   id: string;
   scheduledKickoff: string;
   venue: string | null;
+  stage: string | null;
   status: string;
   playerOrder: string[] | null;
   homeTeam: TeamInfo;
@@ -54,20 +60,10 @@ function liveLabel(s: LiveSnapshot) {
   return s.elapsed != null ? `${s.elapsed}'` : 'Live';
 }
 
-function computeQuickStats(data: DashboardData) {
-  const stats: Record<string, { settled: number; correct: number }> = {};
-  for (const pred of data.predictions) {
-    if (!pred.submittedAt) continue;
-    const result = data.results?.[pred.fixtureId];
-    if (!result) continue;
-    const name = pred.user.name;
-    if (!stats[name]) stats[name] = { settled: 0, correct: 0 };
-    stats[name].settled++;
-    const po = (pred.predictedHomeScore90 ?? 0) > (pred.predictedAwayScore90 ?? 0) ? 'H' : (pred.predictedHomeScore90 ?? 0) < (pred.predictedAwayScore90 ?? 0) ? 'A' : 'D';
-    const ro = result.homeScore90 > result.awayScore90 ? 'H' : result.homeScore90 < result.awayScore90 ? 'A' : 'D';
-    if (po === ro) stats[name].correct++;
-  }
-  return stats;
+function parsePhase(stage: string | null | undefined): string {
+  if (!stage) return 'Other';
+  if (stage.startsWith('Group')) return 'Group Stage';
+  return stage;
 }
 
 function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number {
@@ -96,6 +92,110 @@ function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number 
       awayPenaltyScore: result.awayPenaltyScore ?? null,
     },
   ).totalPoints;
+}
+
+function computeQuickStats(data: DashboardData) {
+  const stats: Record<string, { settled: number; correct: number; streak: number }> = {};
+  const timeline: Record<string, { kickoff: Date; pts: number }[]> = {};
+
+  for (const pred of data.predictions) {
+    if (!pred.submittedAt) continue;
+    const result = data.results?.[pred.fixtureId];
+    if (!result) continue;
+    const name = pred.user.name;
+    if (!stats[name]) { stats[name] = { settled: 0, correct: 0, streak: 0 }; timeline[name] = []; }
+    stats[name].settled++;
+    const po = (pred.predictedHomeScore90 ?? 0) > (pred.predictedAwayScore90 ?? 0) ? 'H' : (pred.predictedHomeScore90 ?? 0) < (pred.predictedAwayScore90 ?? 0) ? 'A' : 'D';
+    const ro = result.homeScore90 > result.awayScore90 ? 'H' : result.homeScore90 < result.awayScore90 ? 'A' : 'D';
+    if (po === ro) stats[name].correct++;
+    const fixture = data.fixtures.find(f => f.id === pred.fixtureId);
+    const pts = pointsForPrediction(pred, result);
+    timeline[name].push({ kickoff: fixture ? new Date(fixture.scheduledKickoff) : new Date(0), pts });
+  }
+
+  for (const name of Object.keys(stats)) {
+    const ordered = (timeline[name] ?? []).sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+    let streak = 0;
+    for (let i = ordered.length - 1; i >= 0; i--) {
+      if (ordered[i].pts > 0) streak++;
+      else break;
+    }
+    stats[name].streak = streak;
+  }
+
+  return stats;
+}
+
+function computeRoundPoints(data: DashboardData) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const roundIds = new Set(
+    data.fixtures
+      .filter(f => data.results?.[f.id] && new Date(f.scheduledKickoff) >= sevenDaysAgo)
+      .map(f => f.id)
+  );
+  const pts: Record<string, number> = {};
+  for (const pred of data.predictions) {
+    if (!pred.submittedAt || !roundIds.has(pred.fixtureId)) continue;
+    const result = data.results?.[pred.fixtureId];
+    if (!result) continue;
+    pts[pred.user.name] = (pts[pred.user.name] ?? 0) + pointsForPrediction(pred, result);
+  }
+  return pts;
+}
+
+function computePlayerProfile(data: DashboardData, playerName: string) {
+  const results = data.results ?? {};
+  let settled = 0, gamePoints = 0, correct = 0, exact = 0, possession = 0, scorer = 0, streak = 0;
+  let bestMatch: { home: string; away: string; pts: number } | null = null;
+  const timeline: number[] = [];
+
+  const settledFixtures = data.fixtures
+    .filter(f => results[f.id])
+    .sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
+
+  for (const f of settledFixtures) {
+    const result = results[f.id];
+    const pred = data.predictions.find(p => p.fixtureId === f.id && p.user.name === playerName && p.submittedAt);
+    if (!pred || !result) continue;
+    const s = scorePrediction(
+      {
+        homeScore: pred.predictedHomeScore90 ?? 0,
+        awayScore: pred.predictedAwayScore90 ?? 0,
+        possession: (pred.possession as 'HOME' | 'AWAY' | 'EQUAL' | undefined) ?? undefined,
+        firstGoalscorerId: pred.firstGoalscorer ?? null,
+        homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
+        awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+        homePenaltyScore: pred.homePenaltyScore ?? null,
+        awayPenaltyScore: pred.awayPenaltyScore ?? null,
+      },
+      {
+        id: f.id, kickoff: new Date(f.scheduledKickoff),
+        homeScore90: result.homeScore90, awayScore90: result.awayScore90,
+        homePossession: result.homePossession, awayPossession: result.awayPossession,
+        firstGoalscorerId: result.firstGoalscorer ?? null,
+        homeScoreExtraTime: result.homeScoreExtraTime ?? null,
+        awayScoreExtraTime: result.awayScoreExtraTime ?? null,
+        homePenaltyScore: result.homePenaltyScore ?? null,
+        awayPenaltyScore: result.awayPenaltyScore ?? null,
+      },
+    );
+    settled++;
+    gamePoints += s.totalPoints;
+    if (s.outcomePoints > 0) correct++;
+    if (s.exactScorePoints > 0) exact++;
+    if (s.possessionPoints > 0) possession++;
+    if (s.firstGoalscorerPoints > 0) scorer++;
+    timeline.push(s.totalPoints);
+    if (!bestMatch || s.totalPoints > bestMatch.pts) {
+      bestMatch = { home: f.homeTeam.name, away: f.awayTeam.name, pts: s.totalPoints };
+    }
+  }
+  for (let i = timeline.length - 1; i >= 0; i--) {
+    if (timeline[i] > 0) streak++;
+    else break;
+  }
+  const player = data.players.find(p => p.name === playerName);
+  return { settled, gamePoints, totalPoints: player?.totalPoints ?? 0, correct, exact, possession, scorer, streak, bestMatch };
 }
 
 function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
@@ -149,18 +249,32 @@ function TimeCell({ v, label }: { v: number; label: string }) {
   );
 }
 
+function ProfileBar({ label, value, count, color }: { label: string; value: number; count: string; color: string }) {
+  return (
+    <div>
+      <div className="flex justify-between mb-1 text-xs">
+        <span className="text-white/55">{label}</span>
+        <span className="text-white/55">{count} · <span className="font-bold text-white/80">{Math.round(value * 100)}%</span></span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden bg-white/8">
+        <div className="h-full rounded-full" style={{ width: `${Math.round(value * 100)}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncAge, setSyncAge] = useState(0);
   const [showPast, setShowPast] = useState(true);
-  const [, setTick] = useState(0); // 1Hz re-render to drive the live countdown
+  const [, setTick] = useState(0);
   const { me, ready: idReady, choose, clear } = useIdentity();
   const { status: notifStatus, loading: notifLoading, subscribe: notifSubscribe, unsubscribe: notifUnsubscribe } = useNotifications(me);
   const [toast, setToast] = useState<string | null>(null);
-  // Fixtures we've already celebrated for the current identity, so confetti
-  // fires once per newly-settled win — never on historical results.
+  const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<string | null>(null);
   const celebratedRef = useRef<{ forMe: PlayerName; seen: Set<string> } | null>(null);
 
   const load = () =>
@@ -188,8 +302,6 @@ export function Dashboard() {
     return () => clearInterval(t);
   }, [lastSynced]);
 
-  // Nudge the server to pull fresh results from the football API while anyone
-  // is viewing. The endpoint self-throttles, so extra viewers cost nothing.
   useEffect(() => {
     const sync = () =>
       fetch('/api/sync-results', { method: 'POST' })
@@ -201,9 +313,6 @@ export function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Celebrate when a freshly-settled match lands points for *you*. On the first
-  // pass for a given identity we "prime" the seen-set (so historical results
-  // don't all pop at once); afterwards only genuinely new wins fire confetti.
   useEffect(() => {
     if (!data || !me) return;
     const storeKey = `anj:celebrated:${me}`;
@@ -281,28 +390,23 @@ export function Dashboard() {
   const sortedPlayers = [...data.players].sort((a, b) => b.totalPoints - a.totalPoints);
   const leaderPts = sortedPlayers[0]?.totalPoints ?? 0;
   const quickStats = computeQuickStats(data);
+  const roundPts = computeRoundPoints(data);
 
-  // All unsettled fixtures (no final result yet) sorted chronologically.
-  // Includes today, tomorrow, and all future match days so users can bet ahead.
   const upcomingFixtures = data.fixtures.filter(f => {
-    if (data.results?.[f.id]) return false; // settled → goes to Past Results
+    if (data.results?.[f.id]) return false;
     const kickoff = new Date(f.scheduledKickoff);
-    // Keep in upcoming if not yet kicked off, or live within last 3h
     return kickoff.getTime() > now.getTime() - 3 * 60 * 60 * 1000;
   }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
   const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
   const pastFixtures = data.fixtures.filter(f => {
-    // Show past games that are settled OR that we engaged with (bet placed)
     const kickoff = new Date(f.scheduledKickoff);
     if (kickoff.getTime() > now.getTime() - 3 * 60 * 60 * 1000) return false;
     return betFixtureIds.has(f.id) || Boolean(data.results?.[f.id]);
   }).sort((a, b) => new Date(b.scheduledKickoff).getTime() - new Date(a.scheduledKickoff).getTime());
 
-  // The very next match that hasn't kicked off yet — drives the hero countdown.
   const nextFixture = upcomingFixtures.find(f => new Date(f.scheduledKickoff).getTime() > now.getTime());
 
-  // Matches where it's *your* turn to bet (open, not yet kicked off, you're up next).
   const myTurnFixtures = me
     ? upcomingFixtures.filter(f => {
         const kickoff = new Date(f.scheduledKickoff);
@@ -311,6 +415,11 @@ export function Dashboard() {
         return currentEligiblePlayer(fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name), preds) === me;
       })
     : [];
+
+  // Phase navigation
+  const upcomingPhases = [...new Set(upcomingFixtures.map(f => parsePhase(f.stage)))];
+  const filteredUpcoming = phaseFilter ? upcomingFixtures.filter(f => parsePhase(f.stage) === phaseFilter) : upcomingFixtures;
+  const filteredPast = phaseFilter ? pastFixtures.filter(f => parsePhase(f.stage) === phaseFilter) : pastFixtures;
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
@@ -459,25 +568,35 @@ export function Dashboard() {
         <section className="animate-rise" style={{ animationDelay: '60ms' }}>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Leaderboard</h2>
-            <span className="text-white/30 text-xs">{sortedPlayers.length} players</span>
+            <span className="text-white/30 text-xs">{sortedPlayers.length} players · tap for profile</span>
           </div>
           <div className="grid grid-cols-3 gap-3 md:gap-4">
             {sortedPlayers.map((p, i) => {
               const isLeader = i === 0 && p.totalPoints > 0;
               const isMe = p.name === me;
               const behind = leaderPts - p.totalPoints;
+              const qs = quickStats[p.name];
+              const color = PLAYER_COLORS[p.name] ?? '#f0ecff';
+              const thisWeek = roundPts[p.name] ?? 0;
               return (
                 <div
                   key={p.name}
-                  className={`relative glass lift rounded-2xl p-4 md:p-5 text-center overflow-hidden ${
+                  className={`relative glass lift rounded-2xl p-4 md:p-5 text-center overflow-hidden cursor-pointer select-none ${
                     isMe ? 'ring-2 ring-flood/60' : isLeader ? 'ring-1 ring-gold/40 leader-glow' : ''
                   }`}
+                  onClick={() => setProfilePlayer(p.name)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => e.key === 'Enter' && setProfilePlayer(p.name)}
                 >
                   {isLeader && (
                     <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-gold to-transparent" />
                   )}
                   {isMe && (
                     <span className="absolute top-2 right-2 pill bg-flood/25 text-white border border-flood/40 text-[0.55rem] px-2 py-0.5">You</span>
+                  )}
+                  {qs && qs.streak >= 2 && (
+                    <span className="absolute top-2 left-2 text-[0.65rem] font-bold text-gold">🔥{qs.streak}</span>
                   )}
                   <div className="text-2xl md:text-3xl">{MEDAL[i] ?? `#${i + 1}`}</div>
                   <h3 className="mt-1 text-base md:text-xl font-bold truncate">{p.name}</h3>
@@ -488,11 +607,13 @@ export function Dashboard() {
                   {i > 0 && behind > 0 && (
                     <p className="mt-1 text-[0.65rem] md:text-xs text-white/35">−{behind} behind</p>
                   )}
-                  <p className="mt-1.5 text-[0.65rem] text-white/40">
+                  {thisWeek > 0 && (
+                    <p className="mt-0.5 text-[0.6rem] font-semibold" style={{ color }}>+{thisWeek} this week</p>
+                  )}
+                  <p className="mt-1 text-[0.65rem] text-white/40">
                     {(() => {
-                      const s = quickStats[p.name];
-                      if (!s || s.settled === 0) return '0 bets';
-                      return `${s.settled} bets · ${Math.round(s.correct / s.settled * 100)}% accurate`;
+                      if (!qs || qs.settled === 0) return '0 bets';
+                      return `${qs.settled} bets · ${Math.round(qs.correct / qs.settled * 100)}%`;
                     })()}
                   </p>
                 </div>
@@ -518,17 +639,44 @@ export function Dashboard() {
         <section className="animate-rise" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Upcoming Matches</h2>
-            <span className="text-white/30 text-xs">{upcomingFixtures.length} to bet</span>
+            <span className="text-white/30 text-xs">
+              {phaseFilter ? `${filteredUpcoming.length} of ${upcomingFixtures.length}` : upcomingFixtures.length} to bet
+            </span>
           </div>
+
+          {/* Phase filter tabs */}
+          {upcomingPhases.length > 1 && (
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-0.5 -mx-1 px-1">
+              <button
+                onClick={() => setPhaseFilter(null)}
+                className={`pill shrink-0 border transition-colors ${!phaseFilter ? 'bg-flood/25 text-white border-flood/40' : 'bg-white/8 text-white/50 border-white/12 hover:bg-white/12'}`}
+              >
+                All
+              </button>
+              {upcomingPhases.map(phase => (
+                <button
+                  key={phase}
+                  onClick={() => setPhaseFilter(phaseFilter === phase ? null : phase)}
+                  className={`pill shrink-0 border transition-colors ${phaseFilter === phase ? 'bg-flood/25 text-white border-flood/40' : 'bg-white/8 text-white/50 border-white/12 hover:bg-white/12'}`}
+                >
+                  {phase}
+                </button>
+              ))}
+            </div>
+          )}
 
           {upcomingFixtures.length === 0 ? (
             <div className="glass rounded-2xl p-10 text-center text-white/50">
               <div className="text-4xl mb-2">🏆</div>
               All matches settled. Tournament over!
             </div>
+          ) : filteredUpcoming.length === 0 ? (
+            <div className="glass rounded-2xl p-8 text-center text-white/50">
+              No upcoming {phaseFilter} matches yet.
+            </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4 md:gap-5">
-              {upcomingFixtures.map(f => {
+              {filteredUpcoming.map(f => {
                 const kickoff = new Date(f.scheduledKickoff);
                 const betOrder = fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name);
                 const preds = toDomainPreds(data.predictions, f.id);
@@ -555,7 +703,10 @@ export function Dashboard() {
                   <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4">
                     {/* top row */}
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-white/40">{f.venue}</span>
+                      <div>
+                        <span className="text-white/40">{f.venue}</span>
+                        {f.stage && <span className="text-white/25 ml-1.5">· {f.stage}</span>}
+                      </div>
                       <div className="flex items-center gap-1.5">
                         {result && <SourceBadge source={result.source} />}
                         {statusPill}
@@ -570,7 +721,7 @@ export function Dashboard() {
                       </div>
                       <div className="px-2 text-center">
                         {result ? (
-                          <div className="text-2xl md:text-3xl font-black tabular-nums">
+                          <div key={`${f.id}-score`} className="text-2xl md:text-3xl font-black tabular-nums score-reveal">
                             {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
                           </div>
                         ) : live ? (
@@ -664,19 +815,21 @@ export function Dashboard() {
           >
             <h2 className="text-white/50 uppercase tracking-widest text-xs font-semibold">Past Results</h2>
             <span className="flex items-center gap-2">
-              <span className="text-white/30 text-xs">{pastFixtures.length} matches</span>
+              <span className="text-white/30 text-xs">{filteredPast.length} matches</span>
               <span className={`text-white/30 text-xs transition-transform duration-200 ${showPast ? 'rotate-180' : ''}`}>▲</span>
             </span>
           </button>
 
           {showPast && (
-            pastFixtures.length === 0 ? (
+            filteredPast.length === 0 ? (
               <div className="glass rounded-2xl p-6 text-center text-white/40 text-sm">
-                No completed matches yet — results will appear here once games are settled.
+                {phaseFilter
+                  ? `No completed ${phaseFilter} matches yet.`
+                  : 'No completed matches yet — results will appear here once games are settled.'}
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-4 md:gap-5">
-                {pastFixtures.map(f => {
+                {filteredPast.map(f => {
                   const kickoff = new Date(f.scheduledKickoff);
                   const preds = toDomainPreds(data.predictions, f.id);
                   const result = data.results?.[f.id];
@@ -685,7 +838,10 @@ export function Dashboard() {
                     <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4 opacity-90">
                       {/* top row */}
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                        <div>
+                          <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                          {f.stage && <span className="text-white/25 ml-1.5">· {f.stage}</span>}
+                        </div>
                         <div className="flex items-center gap-1.5">
                           {result && <SourceBadge source={result.source} />}
                           {result
@@ -703,7 +859,7 @@ export function Dashboard() {
                         </div>
                         <div className="px-2 text-center">
                           {result ? (
-                            <div className="text-2xl md:text-3xl font-black tabular-nums">
+                            <div className="text-2xl md:text-3xl font-black tabular-nums score-reveal">
                               {result.homeScore90}<span className="text-white/30 mx-1">–</span>{result.awayScore90}
                             </div>
                           ) : (
@@ -760,6 +916,95 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* ---------- Player Profile Modal ---------- */}
+      {profilePlayer && (() => {
+        const profile = computePlayerProfile(data, profilePlayer);
+        const color = PLAYER_COLORS[profilePlayer] ?? '#f0ecff';
+        const player = sortedPlayers.find(p => p.name === profilePlayer);
+        const rank = player ? sortedPlayers.indexOf(player) + 1 : null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={() => setProfilePlayer(null)}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div
+              className="relative glass rounded-3xl p-6 w-full max-w-sm animate-rise z-10"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-2xl font-black shrink-0"
+                    style={{ background: `${color}22`, color }}
+                  >
+                    {profilePlayer[0]}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black">{profilePlayer}</h3>
+                    <p className="text-xs text-white/40">{profile.settled} settled · {rank ? `#${rank} overall` : ''}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setProfilePlayer(null)}
+                  className="w-8 h-8 rounded-full bg-white/8 hover:bg-white/15 text-white/60 flex items-center justify-center text-sm transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Total points */}
+              <div className="text-center mb-5">
+                <p className="text-5xl font-black tabular-nums" style={{ color }}>{profile.totalPoints}</p>
+                <p className="text-xs text-white/40 uppercase tracking-wide mt-1">total points</p>
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {[
+                  { label: 'Accuracy', value: profile.settled > 0 ? `${Math.round(profile.correct / profile.settled * 100)}%` : '—', sub: `${profile.correct}/${profile.settled} correct` },
+                  { label: 'Exact Scores', value: profile.exact, sub: `${profile.settled > 0 ? Math.round(profile.exact / profile.settled * 100) : 0}% hit rate` },
+                  { label: 'Possession', value: profile.possession, sub: `${profile.settled > 0 ? Math.round(profile.possession / profile.settled * 100) : 0}% accurate` },
+                  { label: '1st Scorer', value: profile.scorer, sub: `${profile.settled > 0 ? Math.round(profile.scorer / profile.settled * 100) : 0}% accurate` },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="glass-soft p-3 text-center">
+                    <p className="text-xl font-black tabular-nums">{value}</p>
+                    <p className="text-[0.65rem] text-white/40 uppercase tracking-wide">{label}</p>
+                    {sub && <p className="text-[0.6rem] text-white/30 mt-0.5">{sub}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Accuracy bars */}
+              <div className="glass-soft p-4 space-y-3 mb-4">
+                <ProfileBar label="Outcome accuracy" value={profile.settled > 0 ? profile.correct / profile.settled : 0} count={`${profile.correct}/${profile.settled}`} color={color} />
+                <ProfileBar label="Exact score" value={profile.settled > 0 ? profile.exact / profile.settled : 0} count={`${profile.exact}/${profile.settled}`} color="#fbbf24" />
+                <ProfileBar label="Possession" value={profile.settled > 0 ? profile.possession / profile.settled : 0} count={`${profile.possession}/${profile.settled}`} color="#34d399" />
+                <ProfileBar label="First scorer" value={profile.settled > 0 ? profile.scorer / profile.settled : 0} count={`${profile.scorer}/${profile.settled}`} color="#f87171" />
+              </div>
+
+              {/* Streak + Best match */}
+              <div className="flex gap-2">
+                {profile.streak >= 1 && (
+                  <div className="glass-soft p-3 flex-1 text-center">
+                    <p className="text-lg font-black">{'🔥'.repeat(Math.min(profile.streak, 5))} {profile.streak}</p>
+                    <p className="text-[0.65rem] text-white/40 uppercase tracking-wide">current streak</p>
+                  </div>
+                )}
+                {profile.bestMatch && (
+                  <div className="glass-soft p-3 flex-1 text-center">
+                    <p className="text-lg font-black text-gold">+{profile.bestMatch.pts} pts</p>
+                    <p className="text-[0.65rem] text-white/40 uppercase tracking-wide">best match</p>
+                    <p className="text-[0.6rem] text-white/30 truncate">{profile.bestMatch.home} v {profile.bestMatch.away}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </main>
   );
 }

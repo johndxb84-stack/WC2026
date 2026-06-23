@@ -94,6 +94,18 @@ function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number 
   ).totalPoints;
 }
 
+/** Points earned by each player on a single settled fixture (name → pts). */
+function predPointsMap(data: DashboardData, fixtureId: string): Record<string, number> {
+  const result = data.results?.[fixtureId];
+  if (!result) return {};
+  const map: Record<string, number> = {};
+  for (const pred of data.predictions) {
+    if (pred.fixtureId !== fixtureId || !pred.submittedAt) continue;
+    map[pred.user.name] = pointsForPrediction(pred, result);
+  }
+  return map;
+}
+
 function computeQuickStats(data: DashboardData) {
   const stats: Record<string, { settled: number; correct: number; streak: number }> = {};
   const timeline: Record<string, { kickoff: Date; pts: number }[]> = {};
@@ -246,6 +258,28 @@ function TimeCell({ v, label }: { v: number; label: string }) {
       </span>
       <span className="text-[0.5rem] md:text-[0.55rem] uppercase tracking-wide text-white/40 mt-1">{label}</span>
     </div>
+  );
+}
+
+const PLAYER_FALLBACK = '#f0ecff';
+function playerColor(name: string) {
+  return PLAYER_COLORS[name] ?? PLAYER_FALLBACK;
+}
+
+/** A prediction chip tinted in the player's own colour, optionally showing points earned. */
+function PredPill({ name, home, away, pts }: { name: string; home: number; away: number; pts?: number | null }) {
+  const color = playerColor(name);
+  return (
+    <span
+      className="pill border"
+      style={{ backgroundColor: `${color}1f`, borderColor: `${color}59`, color: '#f0ecff' }}
+    >
+      <span className="font-semibold" style={{ color }}>{name}</span>
+      <span className="font-bold ml-0.5">{home}–{away}</span>
+      {pts != null && pts > 0 && (
+        <span className="ml-1 font-bold text-gold">+{pts}</span>
+      )}
+    </span>
   );
 }
 
@@ -616,6 +650,18 @@ export function Dashboard() {
                       return `${qs.settled} bets · ${Math.round(qs.correct / qs.settled * 100)}%`;
                     })()}
                   </p>
+                  {/* relative points bar — share of the leader's total */}
+                  <div className="mt-2.5 h-1 rounded-full overflow-hidden bg-white/8">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${leaderPts > 0 ? Math.max(4, Math.round((p.totalPoints / leaderPts) * 100)) : 0}%`,
+                        backgroundColor: color,
+                        boxShadow: `0 0 10px -2px ${color}`,
+                        transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                      }}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -716,7 +762,7 @@ export function Dashboard() {
                     {/* teams */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
+                        <div className="text-5xl md:text-6xl leading-none drop-shadow-lg">{flag(f.homeTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                       </div>
                       <div className="px-2 text-center">
@@ -738,7 +784,7 @@ export function Dashboard() {
                         )}
                       </div>
                       <div className="flex-1 text-center">
-                        <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
+                        <div className="text-5xl md:text-6xl leading-none drop-shadow-lg">{flag(f.awayTeam.name)}</div>
                         <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
                       </div>
                     </div>
@@ -755,18 +801,23 @@ export function Dashboard() {
                         {betOrder.map(name => {
                           const hasBet = preds.some(p => p.userName === name);
                           const isCurrent = name === current && !isLocked;
+                          const pc = playerColor(name);
+                          const circleStyle =
+                            hasBet ? { backgroundColor: `${pc}33`, color: pc } :
+                            isCurrent ? { backgroundColor: `${pc}26`, color: pc, boxShadow: `0 0 0 2px ${pc}66` } :
+                            { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' };
                           return (
                             <div key={name} className="flex-1 flex flex-col items-center gap-1">
                               <span
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                  hasBet ? 'bg-grass/20 text-grass' :
-                                  isCurrent ? 'bg-flood/20 text-flood' :
-                                  'bg-white/8 text-white/40'
-                                }`}
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+                                style={circleStyle}
                               >
                                 {hasBet ? '✓' : isCurrent ? '⏳' : name[0]}
                               </span>
-                              <span className={`text-[0.7rem] ${isCurrent ? 'text-flood font-semibold' : 'text-white/40'}`}>
+                              <span
+                                className={`text-[0.7rem] ${isCurrent ? 'font-semibold' : ''}`}
+                                style={{ color: isCurrent || hasBet ? pc : 'rgba(255,255,255,0.4)' }}
+                              >
                                 {name}
                               </span>
                             </div>
@@ -786,9 +837,7 @@ export function Dashboard() {
                     {reveal && preds.length > 0 && (
                       <div className="flex flex-wrap justify-center gap-2 text-xs">
                         {preds.map(p => (
-                          <span key={p.userName} className="pill bg-white/6 text-white/70">
-                            {p.userName} <span className="text-white/90 font-bold">{p.homeScore}–{p.awayScore}</span>
-                          </span>
+                          <PredPill key={p.userName} name={p.userName} home={p.homeScore} away={p.awayScore} />
                         ))}
                       </div>
                     )}
@@ -833,6 +882,8 @@ export function Dashboard() {
                   const kickoff = new Date(f.scheduledKickoff);
                   const preds = toDomainPreds(data.predictions, f.id);
                   const result = data.results?.[f.id];
+                  const ptsMap = predPointsMap(data, f.id);
+                  const topPts = Math.max(0, ...Object.values(ptsMap));
 
                   return (
                     <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4 opacity-90">
@@ -854,7 +905,7 @@ export function Dashboard() {
                       {/* teams + score */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 text-center">
-                          <div className="text-4xl md:text-5xl leading-none">{flag(f.homeTeam.name)}</div>
+                          <div className="text-5xl md:text-6xl leading-none drop-shadow-lg">{flag(f.homeTeam.name)}</div>
                           <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.homeTeam.name}</div>
                         </div>
                         <div className="px-2 text-center">
@@ -867,7 +918,7 @@ export function Dashboard() {
                           )}
                         </div>
                         <div className="flex-1 text-center">
-                          <div className="text-4xl md:text-5xl leading-none">{flag(f.awayTeam.name)}</div>
+                          <div className="text-5xl md:text-6xl leading-none drop-shadow-lg">{flag(f.awayTeam.name)}</div>
                           <div className="mt-2 text-sm md:text-base font-bold leading-tight">{f.awayTeam.name}</div>
                         </div>
                       </div>
@@ -877,11 +928,18 @@ export function Dashboard() {
                         <div className="glass-soft p-3">
                           <p className="text-xs text-white/40 text-center mb-2 uppercase tracking-wide">Predictions</p>
                           <div className="flex flex-wrap justify-center gap-2">
-                            {preds.map(p => (
-                              <span key={p.userName} className="pill bg-white/6 text-white/70">
-                                {p.userName} <span className="text-white/90 font-bold">{p.homeScore}–{p.awayScore}</span>
-                              </span>
-                            ))}
+                            {preds.map(p => {
+                              const pts = ptsMap[p.userName];
+                              const isTop = result != null && topPts > 0 && pts === topPts;
+                              return (
+                                <span key={p.userName} className={isTop ? 'relative' : undefined}>
+                                  {isTop && (
+                                    <span className="absolute -top-2 -right-1 text-[0.7rem] leading-none z-10" title="Best call this match">👑</span>
+                                  )}
+                                  <PredPill name={p.userName} home={p.homeScore} away={p.awayScore} pts={result ? pts : null} />
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       ) : (

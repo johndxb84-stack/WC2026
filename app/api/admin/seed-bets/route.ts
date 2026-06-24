@@ -26,12 +26,12 @@ type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null
 // input and cannot write arbitrary data. Rows whose score collides with another
 // player's existing prediction are skipped (house rule: no shared scores).
 const BETS: Omit<StoredPrediction, 'submittedAt' | 'homeScoreExtraTime' | 'awayScoreExtraTime' | 'homePenaltyScore' | 'awayPenaltyScore'>[] = [
-  { fixtureId: 'wc-1489408', userName: 'Jean', homeScore: 1, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Jonathan David' },      // Switzerland v Canada
-  { fixtureId: 'wc-1539009', userName: 'Jean', homeScore: 2, awayScore: 0, possession: 'HOME', firstGoalscorer: 'Edin Džeko' },          // Bosnia & Herzegovina v Qatar
-  { fixtureId: 'wc-1489405', userName: 'Jean', homeScore: 3, awayScore: 0, possession: 'HOME', firstGoalscorer: 'Youssef En-Nesyri' },   // Morocco v Haiti
-  { fixtureId: 'wc-1489406', userName: 'Jean', homeScore: 0, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Vinicius Júnior' },     // Scotland v Brazil
-  { fixtureId: 'wc-1539010', userName: 'Jean', homeScore: 0, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Santiago Giménez' },    // Czechia v Mexico
-  { fixtureId: 'wc-1489407', userName: 'Jean', homeScore: 1, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Son Heung-min' },       // South Africa v South Korea
+  { fixtureId: 'wc-1489408', userName: 'Jean', homeScore: 1, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Jonathan David' },      // Switzerland v Canada — Canada 2-1
+  { fixtureId: 'wc-1539009', userName: 'Jean', homeScore: 2, awayScore: 1, possession: 'HOME', firstGoalscorer: 'Edin Džeko' },          // Bosnia & Herzegovina v Qatar — Bosnia 2-1
+  { fixtureId: 'wc-1489405', userName: 'Jean', homeScore: 3, awayScore: 0, possession: 'HOME', firstGoalscorer: 'Youssef En-Nesyri' },   // Morocco v Haiti — Morocco 3-0
+  { fixtureId: 'wc-1489406', userName: 'Jean', homeScore: 0, awayScore: 3, possession: 'AWAY', firstGoalscorer: 'Vinicius Júnior' },     // Scotland v Brazil — Brazil 3-0
+  { fixtureId: 'wc-1539010', userName: 'Jean', homeScore: 0, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Santiago Giménez' },    // Czechia v Mexico — Mexico 2-0
+  { fixtureId: 'wc-1489407', userName: 'Jean', homeScore: 0, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Son Heung-min' },       // South Africa v South Korea — South Korea 2-0
 ];
 
 export async function GET(request: Request) {

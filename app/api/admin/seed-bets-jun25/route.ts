@@ -12,37 +12,48 @@ const BETS = [
   { fixtureId: 'wc-1489411', userName: 'Jean', homeScore: 1, awayScore: 2, possession: 'AWAY', firstGoalscorer: 'Mitchell Duke' },
 ];
 
+type StoredPrediction = {
+  fixtureId: string;
+  userName: string;
+  homeScore: number;
+  awayScore: number;
+  submittedAt: string;
+  possession?: string;
+  firstGoalscorer?: string;
+};
+
+type PredictionState = { predictions: StoredPrediction[]; resetAt: string | null };
+
+function parseState(raw: string | null): PredictionState {
+  if (!raw) return { predictions: [], resetAt: null };
+  const parsed = JSON.parse(raw) as PredictionState | StoredPrediction[];
+  return Array.isArray(parsed)
+    ? { predictions: parsed, resetAt: null }
+    : { predictions: parsed.predictions ?? [], resetAt: parsed.resetAt ?? null };
+}
+
 export async function GET() {
   const raw = await redisCommand<string>(['GET', REDIS_KEY]);
-  const store: Record<string, unknown[]> = raw ? JSON.parse(raw) : {};
-
+  const state = parseState(raw);
   const report: string[] = [];
+  const submittedAt = new Date().toISOString();
 
   for (const bet of BETS) {
-    const existing: unknown[] = store[bet.fixtureId] ?? [];
-    const clashing = (existing as Array<{ userName: string; homeScore: number; awayScore: number }>).find(
+    const fixturePreds = state.predictions.filter((p) => p.fixtureId === bet.fixtureId);
+    const clashing = fixturePreds.find(
       (p) => p.userName !== bet.userName && p.homeScore === bet.homeScore && p.awayScore === bet.awayScore,
     );
     if (clashing) {
       report.push(`CLASH on ${bet.fixtureId}: ${clashing.userName} already has ${bet.homeScore}-${bet.awayScore}`);
       continue;
     }
-    const withoutJean = (existing as Array<{ userName: string }>).filter((p) => p.userName !== bet.userName);
-    store[bet.fixtureId] = [
-      ...withoutJean,
-      {
-        userName: bet.userName,
-        homeScore: bet.homeScore,
-        awayScore: bet.awayScore,
-        possession: bet.possession,
-        firstGoalscorer: bet.firstGoalscorer,
-      },
+    state.predictions = [
+      ...state.predictions.filter((p) => !(p.fixtureId === bet.fixtureId && p.userName === bet.userName)),
+      { fixtureId: bet.fixtureId, userName: bet.userName, homeScore: bet.homeScore, awayScore: bet.awayScore, submittedAt, possession: bet.possession, firstGoalscorer: bet.firstGoalscorer },
     ];
     report.push(`ADDED ${bet.userName} ${bet.homeScore}-${bet.awayScore} on ${bet.fixtureId}`);
   }
 
-  await redisCommand(['SET', REDIS_KEY, JSON.stringify(store)]);
-
-  const total = Object.values(store).reduce((s, arr) => s + (arr as unknown[]).length, 0);
-  return NextResponse.json({ ok: true, report, total });
+  await redisCommand(['SET', REDIS_KEY, JSON.stringify(state)]);
+  return NextResponse.json({ ok: true, report, total: state.predictions.length });
 }

@@ -218,7 +218,7 @@ export const squads: Record<string, string[]> = {
     'Manuel Neuer', 'Marc-André ter Stegen', 'Oliver Baumann',
     'Joshua Kimmich', 'Antonio Rüdiger', 'Jonathan Tah', 'Nico Schlotterbeck', 'David Raum', 'Benjamin Henrichs',
     'Toni Kroos', 'Florian Wirtz', 'Jamal Musiala', 'Ilkay Gündoğan', 'Leon Goretzka', 'Robert Andrich',
-    'Thomas Müller', 'Leroy Sané', 'Serge Gnabry', 'Kai Havertz', 'Niclas Füllkrug', 'Chris Führich',
+    'Thomas Müller', 'Leroy Sané', 'Serge Gnabry', 'Kai Havertz', 'Niclas Füllkrug', 'Chris Führich', 'Deniz Undav',
   ],
   'Netherlands': [
     'Bart Verbruggen', 'Justin Bijlow', 'Mark Flekken',

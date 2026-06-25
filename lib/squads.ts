@@ -282,15 +282,15 @@ export const squads: Record<string, string[]> = {
   ],
   'Côte d\'Ivoire': [
     'Yahia Fofana', 'Badra Ali Sangaré', 'Sylvain Gbohouo',
-    'Serge Aurier', 'Eric Bailly', 'Wilfried Singo', 'Odilon Kossounou', 'Ghislain Konan', 'Simon Deli',
+    'Eric Bailly', 'Odilon Kossounou', 'Wilfried Singo', 'Ghislain Konan', 'Simon Deli', 'Sinaly Diomandé', 'Emmanuel Agbadou',
     'Franck Kessié', 'Jean-Michaël Seri', 'Ibrahim Sangaré', 'Seko Fofana', 'Abdallah Sima',
-    'Nicolas Pépé', 'Wilfried Zaha', 'Sébastien Haller', 'Max-Alain Gradel', 'Jonathan Kodjia', 'Simon Adingra',
+    'Sébastien Haller', 'Wilfried Zaha', 'Simon Adingra', 'Amad Diallo', 'Amine Bonny', 'Max-Alain Gradel', 'Nicolas Pépé',
   ],
   'Ivory Coast': [
     'Yahia Fofana', 'Badra Ali Sangaré', 'Sylvain Gbohouo',
-    'Serge Aurier', 'Eric Bailly', 'Wilfried Singo', 'Odilon Kossounou', 'Ghislain Konan', 'Simon Deli',
+    'Eric Bailly', 'Odilon Kossounou', 'Wilfried Singo', 'Ghislain Konan', 'Simon Deli', 'Sinaly Diomandé', 'Emmanuel Agbadou',
     'Franck Kessié', 'Jean-Michaël Seri', 'Ibrahim Sangaré', 'Seko Fofana', 'Abdallah Sima',
-    'Nicolas Pépé', 'Wilfried Zaha', 'Sébastien Haller', 'Max-Alain Gradel', 'Jonathan Kodjia', 'Simon Adingra',
+    'Sébastien Haller', 'Wilfried Zaha', 'Simon Adingra', 'Amad Diallo', 'Amine Bonny', 'Max-Alain Gradel', 'Nicolas Pépé',
   ],
   'Serbia': [
     'Vanja Milinković-Savić', 'Predrag Rajković', 'Marko Dmitrović',

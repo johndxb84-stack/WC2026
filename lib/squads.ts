@@ -286,6 +286,12 @@ export const squads: Record<string, string[]> = {
     'Franck Kessié', 'Jean-Michaël Seri', 'Ibrahim Sangaré', 'Seko Fofana', 'Abdallah Sima',
     'Nicolas Pépé', 'Wilfried Zaha', 'Sébastien Haller', 'Max-Alain Gradel', 'Jonathan Kodjia', 'Simon Adingra',
   ],
+  'Ivory Coast': [
+    'Yahia Fofana', 'Badra Ali Sangaré', 'Sylvain Gbohouo',
+    'Serge Aurier', 'Eric Bailly', 'Wilfried Singo', 'Odilon Kossounou', 'Ghislain Konan', 'Simon Deli',
+    'Franck Kessié', 'Jean-Michaël Seri', 'Ibrahim Sangaré', 'Seko Fofana', 'Abdallah Sima',
+    'Nicolas Pépé', 'Wilfried Zaha', 'Sébastien Haller', 'Max-Alain Gradel', 'Jonathan Kodjia', 'Simon Adingra',
+  ],
   'Serbia': [
     'Vanja Milinković-Savić', 'Predrag Rajković', 'Marko Dmitrović',
     'Strahinja Pavlović', 'Nikola Milenković', 'Miloš Veljković', 'Filip Mladenović', 'Srđan Babić', 'Strahinja Eraković',

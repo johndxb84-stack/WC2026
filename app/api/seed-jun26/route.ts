@@ -68,7 +68,7 @@ const NEW_PREDS = [
   },
 ];
 
-export async function POST() {
+export async function GET() {
   try {
     const { redisCommand } = await import('@/lib/redis-store');
 

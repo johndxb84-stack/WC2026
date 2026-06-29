@@ -587,8 +587,8 @@ export default function MatchPage() {
                     `Score ${s.exactScorePoints}/2`,
                     ...(pred.possession ? [`Poss ${s.possessionPoints}/1`] : []),
                     ...(pred.firstGoalscorer ? [`Scorer ${s.firstGoalscorerPoints}/1`] : []),
-                    ...(result.homeScoreExtraTime != null ? [`ET ${s.extraTimePoints}/1`] : []),
-                    ...(result.homePenaltyScore != null ? [`Pen ${s.penaltyPoints}/1`] : []),
+                    ...(result.homeScoreExtraTime != null ? [`ET reached ${s.reachedExtraTimePoints}/1`, `ET score ${s.extraTimePoints}/1`] : []),
+                    ...(result.homePenaltyScore != null ? [`Pens reached ${s.reachedPenaltiesPoints}/1`, `Pen score ${s.penaltyPoints}/1`] : []),
                   ];
                 }
                 const possLabel = pred.possession === 'HOME' ? fixture.homeTeam.name : pred.possession === 'AWAY' ? fixture.awayTeam.name : pred.possession === 'EQUAL' ? 'Equal' : null;

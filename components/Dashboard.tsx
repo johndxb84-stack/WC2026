@@ -217,6 +217,8 @@ function toDomainPreds(predictions: ApiPrediction[], fixtureId: string) {
       userName: p.user.name,
       homeScore: p.predictedHomeScore90 ?? 0,
       awayScore: p.predictedAwayScore90 ?? 0,
+      homeScoreExtraTime: p.homeScoreExtraTime ?? null,
+      awayScoreExtraTime: p.awayScoreExtraTime ?? null,
       submittedAt: new Date(p.submittedAt!),
       forfeited: p.status === 'FORFEITED',
     }));
@@ -266,15 +268,19 @@ function playerColor(name: string) {
   return PLAYER_COLORS[name] ?? PLAYER_FALLBACK;
 }
 
-function PredPill({ name, home, away, pts }: { name: string; home: number; away: number; pts?: number | null }) {
+function PredPill({ name, home, away, homeET, awayET, pts }: { name: string; home: number; away: number; homeET?: number | null; awayET?: number | null; pts?: number | null }) {
   const color = playerColor(name);
+  const hasET = homeET != null && awayET != null;
+  const showHome = hasET ? homeET : home;
+  const showAway = hasET ? awayET : away;
   return (
     <span
       className="pill border"
       style={{ backgroundColor: `${color}1f`, borderColor: `${color}59`, color: '#f0ecff' }}
     >
       <span className="font-semibold" style={{ color }}>{name}</span>
-      <span className="font-bold ml-0.5">{home}–{away}</span>
+      <span className="font-bold ml-0.5">{showHome}–{showAway}</span>
+      {hasET && <span className="ml-0.5 text-[0.6rem] uppercase tracking-wide text-white/45">aet</span>}
       {pts != null && pts > 0 && (
         <span className="ml-1 font-bold text-gold">+{pts}</span>
       )}
@@ -801,7 +807,7 @@ export function Dashboard() {
                           {reveal && preds.length > 0 && (
                             <div className="flex flex-wrap justify-center gap-2 text-xs">
                               {preds.map(p => (
-                                <PredPill key={p.userName} name={p.userName} home={p.homeScore} away={p.awayScore} />
+                                <PredPill key={p.userName} name={p.userName} home={p.homeScore} away={p.awayScore} homeET={p.homeScoreExtraTime} awayET={p.awayScoreExtraTime} />
                               ))}
                             </div>
                           )}
@@ -959,7 +965,7 @@ export function Dashboard() {
                             return (
                               <span key={p.userName} className={isTop ? 'relative' : undefined}>
                                 {isTop && <span className="absolute -top-2 -right-1 text-[0.7rem] leading-none z-10" title="Best call this match">👑</span>}
-                                <PredPill name={p.userName} home={p.homeScore} away={p.awayScore} pts={result ? pts : null} />
+                                <PredPill name={p.userName} home={p.homeScore} away={p.awayScore} homeET={p.homeScoreExtraTime} awayET={p.awayScoreExtraTime} pts={result ? pts : null} />
                               </span>
                             );
                           })}

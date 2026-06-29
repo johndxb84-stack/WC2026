@@ -73,6 +73,18 @@ export function fixtureOrder(kickoff: Date, venue: string | null, homeTeam: stri
 }
 
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }
+// The winner of the match using the most decisive result available: penalties, then extra time, then 90'.
+// Used for the outcome point so that correctly calling the eventual winner counts, even if the match was
+// settled in ET/penalties (90' draw) or the predictor expected ET but it finished in regulation.
+export function finalWinner(
+  home90: number, away90: number,
+  homeET?: number | null, awayET?: number | null,
+  homePen?: number | null, awayPen?: number | null,
+): Outcome {
+  if (homePen != null && awayPen != null && homePen !== awayPen) return homePen > awayPen ? 'HOME' : 'AWAY';
+  if (homeET != null && awayET != null) return outcome(homeET, awayET);
+  return outcome(home90, away90);
+}
 export function isLocked(fixture: FixtureLike, now = new Date()) { return Boolean(fixture.started) || now >= fixture.kickoff; }
 export function currentEligiblePlayer(order: string[], predictions: PredictionRecord[]) {
   for (const name of order) if (!predictions.some(p => p.userName === name && (p.submittedAt || p.forfeited))) return name;
@@ -90,7 +102,9 @@ export function shouldReveal(order: string[], predictions: PredictionRecord[], f
   return isLocked(fixture, now) || order.every(name => predictions.some(p => p.userName === name && (p.submittedAt || p.forfeited)));
 }
 export function scorePrediction(pred: {homeScore:number; awayScore:number; possession?:PossessionPick; firstGoalscorerId?:string|null; homeScoreExtraTime?:number|null; awayScoreExtraTime?:number|null; homePenaltyScore?:number|null; awayPenaltyScore?:number|null}, fixture: Required<Pick<FixtureLike,'homeScore90'|'awayScore90'>> & FixtureLike) {
-  const outcomePoints = outcome(pred.homeScore, pred.awayScore) === outcome(fixture.homeScore90, fixture.awayScore90) ? 1 : 0;
+  const predWinner = finalWinner(pred.homeScore, pred.awayScore, pred.homeScoreExtraTime, pred.awayScoreExtraTime, pred.homePenaltyScore, pred.awayPenaltyScore);
+  const actualWinner = finalWinner(fixture.homeScore90, fixture.awayScore90, fixture.homeScoreExtraTime, fixture.awayScoreExtraTime, fixture.homePenaltyScore, fixture.awayPenaltyScore);
+  const outcomePoints = predWinner === actualWinner ? 1 : 0;
   const exactScorePoints = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 2 : 0;
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
   const possessionPoints = pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0;

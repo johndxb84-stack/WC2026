@@ -596,8 +596,13 @@ export default function MatchPage() {
                   <div key={name} className="glass-soft p-3.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-black tabular-nums">{pred.homeScore}–{pred.awayScore}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-black tabular-nums">
+                          {pred.homeScoreExtraTime != null ? pred.homeScoreExtraTime : pred.homeScore}–{pred.homeScoreExtraTime != null ? pred.awayScoreExtraTime : pred.awayScore}
+                        </span>
+                        {pred.homeScoreExtraTime != null && (
+                          <span className="pill bg-white/8 text-white/50 border border-white/12 text-[0.6rem] uppercase tracking-wide">AET</span>
+                        )}
                         {pts != null && (
                           <span className="pill bg-gold/15 text-gold font-bold">{pts} pts</span>
                         )}
@@ -606,7 +611,7 @@ export default function MatchPage() {
                     <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-white/45">
                       {possLabel && <span>Possession: {possLabel}</span>}
                       {pred.firstGoalscorer && <span>Scorer: {pred.firstGoalscorer}</span>}
-                      {pred.homeScoreExtraTime != null && <span>ET: {pred.homeScoreExtraTime}–{pred.awayScoreExtraTime}</span>}
+                      {pred.homeScoreExtraTime != null && <span>FT: {pred.homeScore}–{pred.awayScore}</span>}
                       {pred.homePenaltyScore != null && <span>Pen: {pred.homePenaltyScore}–{pred.awayPenaltyScore}</span>}
                     </div>
                     {breakdown.length > 0 && (

@@ -26,10 +26,15 @@ type ApiPrediction = {
 type ApiPlayer = { id: string; name: string; totalPoints: number };
 type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult> };
 
-function ScoreInput({ value, onChange, label, flag }: { value: number; onChange: (v: number) => void; label: string; flag?: string }) {
+function ScoreInput({ value, onChange, label, flag, side }: { value: number; onChange: (v: number) => void; label: string; flag?: string; side?: 'home' | 'away' }) {
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-xs text-white/55 text-center max-w-[6rem] leading-tight">{flag ? `${flag} ` : ''}{label}</span>
+    <div className="flex flex-col items-center gap-1.5">
+      {side && (
+        <span className={`pill text-[0.55rem] uppercase tracking-wider border ${side === 'home' ? 'bg-flood/15 text-flood border-flood/25' : 'bg-gold/15 text-gold border-gold/25'}`}>
+          {side === 'home' ? 'Home' : 'Away'}
+        </span>
+      )}
+      <span className="text-xs text-white/70 text-center max-w-[7rem] leading-tight font-semibold">{flag ? `${flag} ` : ''}{label}</span>
       <div className="flex items-center gap-3">
         <button type="button" className="stepper" onClick={() => onChange(Math.max(0, value - 1))}>−</button>
         <span className="w-9 text-center text-3xl font-black tabular-nums">{value}</span>
@@ -411,9 +416,9 @@ export default function MatchPage() {
                 <div className="glass-soft p-4">
                   <p className="text-xs text-white/45 uppercase tracking-wide mb-4 text-center">90-minute score</p>
                   <div className="flex items-center justify-center gap-4">
-                    <ScoreInput value={homeScore} onChange={setHomeScore} label={fixture.homeTeam.name} flag={homeFlag} />
-                    <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                    <ScoreInput value={awayScore} onChange={setAwayScore} label={fixture.awayTeam.name} flag={awayFlag} />
+                    <ScoreInput value={homeScore} onChange={setHomeScore} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                    <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                    <ScoreInput value={awayScore} onChange={setAwayScore} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                   </div>
                   <p className="text-center text-sm text-white/45 mt-3">
                     Predicted result: <span className="text-white font-semibold">{outcomeLabel(homeScore, awayScore)}</span>
@@ -455,9 +460,9 @@ export default function MatchPage() {
                     <>
                       <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
                       <div className="flex items-center justify-center gap-4 pt-2">
-                        <ScoreInput value={homeET} onChange={setHomeET} label="After ET" flag={homeFlag} />
-                        <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                        <ScoreInput value={awayET} onChange={setAwayET} label="After ET" flag={awayFlag} />
+                        <ScoreInput value={homeET} onChange={setHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                        <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                        <ScoreInput value={awayET} onChange={setAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                       </div>
                     </>
                   )}
@@ -471,9 +476,9 @@ export default function MatchPage() {
                   </label>
                   {hasPenalties && (
                     <div className="flex items-center justify-center gap-4 pt-2">
-                      <ScoreInput value={homePenalty} onChange={setHomePenalty} label="Penalties" flag={homeFlag} />
-                      <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                      <ScoreInput value={awayPenalty} onChange={setAwayPenalty} label="Penalties" flag={awayFlag} />
+                      <ScoreInput value={homePenalty} onChange={setHomePenalty} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                      <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                      <ScoreInput value={awayPenalty} onChange={setAwayPenalty} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                     </div>
                   )}
                 </div>
@@ -640,9 +645,9 @@ export default function MatchPage() {
               <div className="glass-soft p-4">
                 <p className="text-xs text-white/45 uppercase tracking-wide mb-4 text-center">90-minute score</p>
                 <div className="flex items-center justify-center gap-4">
-                  <ScoreInput value={rHome90} onChange={setRHome90} label={fixture.homeTeam.name} flag={homeFlag} />
-                  <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                  <ScoreInput value={rAway90} onChange={setRAway90} label={fixture.awayTeam.name} flag={awayFlag} />
+                  <ScoreInput value={rHome90} onChange={setRHome90} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                  <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                  <ScoreInput value={rAway90} onChange={setRAway90} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                 </div>
               </div>
 
@@ -675,9 +680,9 @@ export default function MatchPage() {
                   <>
                     <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
                     <div className="flex items-center justify-center gap-4 pt-2">
-                      <ScoreInput value={rHomeET} onChange={setRHomeET} label="After ET" flag={homeFlag} />
-                      <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                      <ScoreInput value={rAwayET} onChange={setRAwayET} label="After ET" flag={awayFlag} />
+                      <ScoreInput value={rHomeET} onChange={setRHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                      <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                      <ScoreInput value={rAwayET} onChange={setRAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                     </div>
                   </>
                 )}
@@ -690,9 +695,9 @@ export default function MatchPage() {
                 </label>
                 {rHasPenalties && (
                   <div className="flex items-center justify-center gap-4 pt-2">
-                    <ScoreInput value={rHomePenalty} onChange={setRHomePenalty} label="Penalties" flag={homeFlag} />
-                    <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                    <ScoreInput value={rAwayPenalty} onChange={setRAwayPenalty} label="Penalties" flag={awayFlag} />
+                    <ScoreInput value={rHomePenalty} onChange={setRHomePenalty} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                    <span className="text-2xl text-white/25 font-black mt-8">–</span>
+                    <ScoreInput value={rAwayPenalty} onChange={setRAwayPenalty} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
                   </div>
                 )}
               </div>

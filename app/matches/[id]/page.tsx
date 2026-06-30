@@ -448,15 +448,18 @@ export default function MatchPage() {
                 {/* Extra time */}
                 <div className="glass-soft p-4 space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={hasET} onChange={e => setHasET(e.target.checked)} className="w-5 h-5 accent-flood" />
-                    <span className="text-sm">⏱️ Bet on extra-time score <span className="text-flood">+1 pt</span></span>
+                    <input type="checkbox" checked={hasET} onChange={e => { setHasET(e.target.checked); if (e.target.checked) { setHomeET(homeScore); setAwayET(awayScore); } }} className="w-5 h-5 accent-flood" />
+                    <span className="text-sm">⏱️ Bet on the score after extra time <span className="text-flood">+1 pt</span></span>
                   </label>
                   {hasET && (
-                    <div className="flex items-center justify-center gap-4 pt-2">
-                      <ScoreInput value={homeET} onChange={setHomeET} label="Extra time" flag={homeFlag} />
-                      <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                      <ScoreInput value={awayET} onChange={setAwayET} label="Extra time" flag={awayFlag} />
-                    </div>
+                    <>
+                      <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
+                      <div className="flex items-center justify-center gap-4 pt-2">
+                        <ScoreInput value={homeET} onChange={setHomeET} label="After ET" flag={homeFlag} />
+                        <span className="text-2xl text-white/25 font-black mt-5">–</span>
+                        <ScoreInput value={awayET} onChange={setAwayET} label="After ET" flag={awayFlag} />
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -526,7 +529,7 @@ export default function MatchPage() {
                 </div>
                 {result.homeScoreExtraTime != null && (
                   <div>
-                    <p className="text-white/45 text-xs">Extra time</p>
+                    <p className="text-white/45 text-xs">After extra time</p>
                     <p className="font-bold">{result.homeScoreExtraTime}–{result.awayScoreExtraTime}</p>
                   </div>
                 )}
@@ -665,15 +668,18 @@ export default function MatchPage() {
 
               <div className="glass-soft p-4 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={rHasET} onChange={e => setRHasET(e.target.checked)} className="w-5 h-5 accent-flood" />
+                  <input type="checkbox" checked={rHasET} onChange={e => { setRHasET(e.target.checked); if (e.target.checked) { setRHomeET(rHome90); setRAwayET(rAway90); } }} className="w-5 h-5 accent-flood" />
                   <span className="text-sm">Extra time played?</span>
                 </label>
                 {rHasET && (
-                  <div className="flex items-center justify-center gap-4 pt-2">
-                    <ScoreInput value={rHomeET} onChange={setRHomeET} label="Extra time" flag={homeFlag} />
-                    <span className="text-2xl text-white/25 font-black mt-5">–</span>
-                    <ScoreInput value={rAwayET} onChange={setRAwayET} label="Extra time" flag={awayFlag} />
-                  </div>
+                  <>
+                    <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
+                    <div className="flex items-center justify-center gap-4 pt-2">
+                      <ScoreInput value={rHomeET} onChange={setRHomeET} label="After ET" flag={homeFlag} />
+                      <span className="text-2xl text-white/25 font-black mt-5">–</span>
+                      <ScoreInput value={rAwayET} onChange={setRAwayET} label="After ET" flag={awayFlag} />
+                    </div>
+                  </>
                 )}
               </div>
 

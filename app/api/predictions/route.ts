@@ -123,6 +123,7 @@ function toApiPrediction(p: StoredPrediction) {
 function computePlayerPoints(
   predictions: StoredPrediction[],
   results: Awaited<ReturnType<typeof readResults>>,
+  kickoffs: Map<string, Date>,
 ) {
   const totals: Record<string, number> = {};
   for (const pred of predictions) {
@@ -149,7 +150,7 @@ function computePlayerPoints(
       homePenaltyScore: pred.homePenaltyScore ?? null,
       awayPenaltyScore: pred.awayPenaltyScore ?? null,
     };
-    const fixtureForScore = { id: pred.fixtureId, kickoff: new Date(0), ...fixture };
+    const fixtureForScore = { id: pred.fixtureId, kickoff: kickoffs.get(pred.fixtureId) ?? new Date(0), ...fixture };
     const { totalPoints } = scorePrediction(predForScore, fixtureForScore);
     totals[pred.userName] = (totals[pred.userName] ?? 0) + totalPoints;
   }
@@ -160,7 +161,10 @@ export async function GET() {
   try {
     const [state, results, live, imported] = await Promise.all([readState(), readResults(), readLive(), readFixtures()]);
     const persistence = redisPersistenceConfigured() && !redisLastError() ? 'redis' : 'memory';
-    const playerPoints = computePlayerPoints(state.predictions, results);
+    const kickoffs = new Map<string, Date>();
+    for (const f of mockFixtures) kickoffs.set(f.id, f.kickoff instanceof Date ? f.kickoff : new Date(f.kickoff));
+    for (const f of Object.values(imported)) kickoffs.set(f.id, new Date(f.kickoff));
+    const playerPoints = computePlayerPoints(state.predictions, results, kickoffs);
     const importedApi = Object.values(imported).map((f) => ({
       id: f.id,
       scheduledKickoff: f.kickoff,

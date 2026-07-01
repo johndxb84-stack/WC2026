@@ -66,7 +66,7 @@ function parsePhase(stage: string | null | undefined): string {
   return stage;
 }
 
-function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number {
+function pointsForPrediction(pred: ApiPrediction, result: StoredResult, kickoff: Date): number {
   return scorePrediction(
     {
       homeScore: pred.predictedHomeScore90 ?? 0,
@@ -80,7 +80,7 @@ function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number 
     },
     {
       id: pred.fixtureId,
-      kickoff: new Date(0),
+      kickoff,
       homeScore90: result.homeScore90,
       awayScore90: result.awayScore90,
       homePossession: result.homePossession,
@@ -95,13 +95,19 @@ function pointsForPrediction(pred: ApiPrediction, result: StoredResult): number 
 }
 
 /** Points earned by each player on a single settled fixture (name → pts). */
+function kickoffOf(data: DashboardData, fixtureId: string): Date {
+  const fx = data.fixtures.find(f => f.id === fixtureId);
+  return fx ? new Date(fx.scheduledKickoff) : new Date(0);
+}
+
 function predPointsMap(data: DashboardData, fixtureId: string): Record<string, number> {
   const result = data.results?.[fixtureId];
   if (!result) return {};
+  const kickoff = kickoffOf(data, fixtureId);
   const map: Record<string, number> = {};
   for (const pred of data.predictions) {
     if (pred.fixtureId !== fixtureId || !pred.submittedAt) continue;
-    map[pred.user.name] = pointsForPrediction(pred, result);
+    map[pred.user.name] = pointsForPrediction(pred, result, kickoff);
   }
   return map;
 }
@@ -121,8 +127,9 @@ function computeQuickStats(data: DashboardData) {
     const ro = result.homeScore90 > result.awayScore90 ? 'H' : result.homeScore90 < result.awayScore90 ? 'A' : 'D';
     if (po === ro) stats[name].correct++;
     const fixture = data.fixtures.find(f => f.id === pred.fixtureId);
-    const pts = pointsForPrediction(pred, result);
-    timeline[name].push({ kickoff: fixture ? new Date(fixture.scheduledKickoff) : new Date(0), pts });
+    const kickoff = fixture ? new Date(fixture.scheduledKickoff) : new Date(0);
+    const pts = pointsForPrediction(pred, result, kickoff);
+    timeline[name].push({ kickoff, pts });
   }
 
   for (const name of Object.keys(stats)) {
@@ -150,7 +157,7 @@ function computeRoundPoints(data: DashboardData) {
     if (!pred.submittedAt || !roundIds.has(pred.fixtureId)) continue;
     const result = data.results?.[pred.fixtureId];
     if (!result) continue;
-    pts[pred.user.name] = (pts[pred.user.name] ?? 0) + pointsForPrediction(pred, result);
+    pts[pred.user.name] = (pts[pred.user.name] ?? 0) + pointsForPrediction(pred, result, kickoffOf(data, pred.fixtureId));
   }
   return pts;
 }
@@ -381,7 +388,7 @@ export function Dashboard() {
       seen.add(f.id);
       const myPred = data.predictions.find(p => p.fixtureId === f.id && p.user.name === me && p.submittedAt);
       if (!myPred) continue;
-      const pts = pointsForPrediction(myPred, result);
+      const pts = pointsForPrediction(myPred, result, new Date(f.scheduledKickoff));
       if (pts > 0 && (!best || pts > best.pts)) {
         best = { pts, text: `+${pts} pts! ${f.homeTeam.name} ${result.homeScore90}–${result.awayScore90} ${f.awayTeam.name}` };
       }

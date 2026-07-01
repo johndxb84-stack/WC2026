@@ -8,6 +8,13 @@ export type PredictionInput = { userName: string; homeScore: number; awayScore: 
 export type PredictionRecord = PredictionInput & { forfeited?: boolean };
 export type FixtureLike = { id: string; kickoff: Date; started?: boolean; homeScore90?: number; awayScore90?: number; homePossession?: number; awayPossession?: number; firstGoalscorerId?: string | null; homeScoreExtraTime?: number | null; awayScoreExtraTime?: number | null; homePenaltyScore?: number | null; awayPenaltyScore?: number | null; settled?: boolean };
 
+// The rewards were upgraded — all point values doubled — starting with the games from 1 July 2026.
+// Matches that kicked off before this keep their original (single) point values, so past scores never change.
+export const NEW_POINTS_FROM = new Date('2026-07-01T12:00:00Z');
+export function pointMultiplier(kickoff?: Date | null): number {
+  return kickoff && kickoff.getTime() >= NEW_POINTS_FROM.getTime() ? 2 : 1;
+}
+
 export function dateKeyInTimezone(date: Date, timeZone = 'Asia/Dubai') {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
@@ -104,16 +111,17 @@ export function shouldReveal(order: string[], predictions: PredictionRecord[], f
 export function scorePrediction(pred: {homeScore:number; awayScore:number; possession?:PossessionPick; firstGoalscorerId?:string|null; homeScoreExtraTime?:number|null; awayScoreExtraTime?:number|null; homePenaltyScore?:number|null; awayPenaltyScore?:number|null}, fixture: Required<Pick<FixtureLike,'homeScore90'|'awayScore90'>> & FixtureLike) {
   const predWinner = finalWinner(pred.homeScore, pred.awayScore, pred.homeScoreExtraTime, pred.awayScoreExtraTime, pred.homePenaltyScore, pred.awayPenaltyScore);
   const actualWinner = finalWinner(fixture.homeScore90, fixture.awayScore90, fixture.homeScoreExtraTime, fixture.awayScoreExtraTime, fixture.homePenaltyScore, fixture.awayPenaltyScore);
-  // All point values are doubled (outcome 2, exact 4, everything else 2) to make each bet swing harder.
-  const outcomePoints = predWinner === actualWinner ? 2 : 0;
-  const exactScorePoints = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 4 : 0;
+  // Point values double for games from NEW_POINTS_FROM onward; earlier games keep their original values.
+  const m = pointMultiplier(fixture.kickoff);
+  const outcomePoints = (predWinner === actualWinner ? 1 : 0) * m;
+  const exactScorePoints = (pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 2 : 0) * m;
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
-  const possessionPoints = pred.possession && actualPossession && pred.possession === actualPossession ? 2 : 0;
-  const firstGoalscorerPoints = pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 2 : 0;
+  const possessionPoints = (pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0) * m;
+  const firstGoalscorerPoints = (pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0) * m;
   // Correctly calling that the match goes the distance, regardless of the ET/penalty score itself.
-  const reachedExtraTimePoints = pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null && fixture.homeScoreExtraTime != null ? 2 : 0;
-  const extraTimePoints = fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 2 : 0;
-  const reachedPenaltiesPoints = pred.homePenaltyScore != null && pred.awayPenaltyScore != null && fixture.homePenaltyScore != null ? 2 : 0;
-  const penaltyPoints = fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 2 : 0;
-  return { outcomePoints, exactScorePoints, possessionPoints, firstGoalscorerPoints, reachedExtraTimePoints, extraTimePoints, reachedPenaltiesPoints, penaltyPoints, totalPoints: outcomePoints + exactScorePoints + possessionPoints + firstGoalscorerPoints + reachedExtraTimePoints + extraTimePoints + reachedPenaltiesPoints + penaltyPoints };
+  const reachedExtraTimePoints = (pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null && fixture.homeScoreExtraTime != null ? 1 : 0) * m;
+  const extraTimePoints = (fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 1 : 0) * m;
+  const reachedPenaltiesPoints = (pred.homePenaltyScore != null && pred.awayPenaltyScore != null && fixture.homePenaltyScore != null ? 1 : 0) * m;
+  const penaltyPoints = (fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 1 : 0) * m;
+  return { outcomePoints, exactScorePoints, possessionPoints, firstGoalscorerPoints, reachedExtraTimePoints, extraTimePoints, reachedPenaltiesPoints, penaltyPoints, multiplier: m, totalPoints: outcomePoints + exactScorePoints + possessionPoints + firstGoalscorerPoints + reachedExtraTimePoints + extraTimePoints + reachedPenaltiesPoints + penaltyPoints };
 }

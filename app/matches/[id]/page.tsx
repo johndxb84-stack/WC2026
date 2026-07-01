@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { fixtureOrder, currentEligiblePlayer, shouldReveal, scorePrediction } from '@/lib/domain';
+import { fixtureOrder, currentEligiblePlayer, shouldReveal, scorePrediction, pointMultiplier } from '@/lib/domain';
 import { squads } from '@/lib/squads';
 import { flag } from '@/lib/flags';
 import { useIdentity } from '@/lib/useIdentity';
@@ -122,6 +122,7 @@ export default function MatchPage() {
   }
 
   const kickoff = new Date(fixture.scheduledKickoff);
+  const pointsMult = pointMultiplier(kickoff);
   const now = new Date();
   const isLocked = now >= kickoff;
   const minutesUntilKickoff = (kickoff.getTime() - now.getTime()) / 60_000;
@@ -427,7 +428,7 @@ export default function MatchPage() {
 
                 {/* Possession */}
                 <div>
-                  <label className="block text-sm text-white/55 mb-1.5">🔄 Higher possession <span className="text-flood">+2 pts</span></label>
+                  <label className="block text-sm text-white/55 mb-1.5">🔄 Higher possession <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
                   <select className="field" value={possession} onChange={e => setPossession(e.target.value)}>
                     <option value="">Skip — no possession bet</option>
                     <option value="HOME">{fixture.homeTeam.name} (Home)</option>
@@ -438,7 +439,7 @@ export default function MatchPage() {
 
                 {/* First goalscorer */}
                 <div>
-                  <label className="block text-sm text-white/55 mb-1.5">⚽ First goalscorer <span className="text-flood">+2 pts</span></label>
+                  <label className="block text-sm text-white/55 mb-1.5">⚽ First goalscorer <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
                   <select className="field" value={firstGoalscorer} onChange={e => setFirstGoalscorer(e.target.value)}>
                     <option value="">Skip — no scorer bet</option>
                     <optgroup label={`${fixture.homeTeam.name}`}>
@@ -454,7 +455,7 @@ export default function MatchPage() {
                 <div className="glass-soft p-4 space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={hasET} onChange={e => { setHasET(e.target.checked); if (e.target.checked) { setHomeET(homeScore); setAwayET(awayScore); } }} className="w-5 h-5 accent-flood" />
-                    <span className="text-sm">⏱️ Bet on the score after extra time <span className="text-flood">+2 pts</span></span>
+                    <span className="text-sm">⏱️ Bet on the score after extra time <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
                   </label>
                   {hasET && (
                     <>
@@ -472,7 +473,7 @@ export default function MatchPage() {
                 <div className="glass-soft p-4 space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={hasPenalties} onChange={e => setHasPenalties(e.target.checked)} className="w-5 h-5 accent-flood" />
-                    <span className="text-sm">🥅 Bet on penalty shootout score <span className="text-flood">+2 pts</span></span>
+                    <span className="text-sm">🥅 Bet on penalty shootout score <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
                   </label>
                   {hasPenalties && (
                     <div className="flex items-center justify-center gap-4 pt-2">
@@ -509,7 +510,12 @@ export default function MatchPage() {
 
         {/* ---------- Predictions & scoring ---------- */}
         <div className="glass rounded-3xl p-6 animate-rise" style={{ animationDelay: '120ms' }}>
-          <h2 className="text-lg font-bold mb-4">Predictions &amp; Scoring</h2>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-lg font-bold">Predictions &amp; Scoring</h2>
+            {pointsMult > 1 && (
+              <span className="pill bg-gold/15 text-gold border border-gold/25 font-bold text-xs">⚡ {pointsMult}× points</span>
+            )}
+          </div>
 
           {result ? (
             <div className="rounded-2xl bg-gold/8 border border-gold/25 p-4 mb-4">
@@ -591,12 +597,12 @@ export default function MatchPage() {
                   }, fixture2);
                   pts = s.totalPoints;
                   breakdown = [
-                    `Outcome ${s.outcomePoints}/2`,
-                    `Score ${s.exactScorePoints}/4`,
-                    ...(pred.possession ? [`Poss ${s.possessionPoints}/2`] : []),
-                    ...(pred.firstGoalscorer ? [`Scorer ${s.firstGoalscorerPoints}/2`] : []),
-                    ...(result.homeScoreExtraTime != null ? [`ET reached ${s.reachedExtraTimePoints}/2`, `ET score ${s.extraTimePoints}/2`] : []),
-                    ...(result.homePenaltyScore != null ? [`Pens reached ${s.reachedPenaltiesPoints}/2`, `Pen score ${s.penaltyPoints}/2`] : []),
+                    `Outcome ${s.outcomePoints}/${1 * s.multiplier}`,
+                    `Score ${s.exactScorePoints}/${2 * s.multiplier}`,
+                    ...(pred.possession ? [`Poss ${s.possessionPoints}/${1 * s.multiplier}`] : []),
+                    ...(pred.firstGoalscorer ? [`Scorer ${s.firstGoalscorerPoints}/${1 * s.multiplier}`] : []),
+                    ...(result.homeScoreExtraTime != null ? [`ET reached ${s.reachedExtraTimePoints}/${1 * s.multiplier}`, `ET score ${s.extraTimePoints}/${1 * s.multiplier}`] : []),
+                    ...(result.homePenaltyScore != null ? [`Pens reached ${s.reachedPenaltiesPoints}/${1 * s.multiplier}`, `Pen score ${s.penaltyPoints}/${1 * s.multiplier}`] : []),
                   ];
                 }
                 const possLabel = pred.possession === 'HOME' ? fixture.homeTeam.name : pred.possession === 'AWAY' ? fixture.awayTeam.name : pred.possession === 'EQUAL' ? 'Equal' : null;

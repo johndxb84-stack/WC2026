@@ -104,15 +104,16 @@ export function shouldReveal(order: string[], predictions: PredictionRecord[], f
 export function scorePrediction(pred: {homeScore:number; awayScore:number; possession?:PossessionPick; firstGoalscorerId?:string|null; homeScoreExtraTime?:number|null; awayScoreExtraTime?:number|null; homePenaltyScore?:number|null; awayPenaltyScore?:number|null}, fixture: Required<Pick<FixtureLike,'homeScore90'|'awayScore90'>> & FixtureLike) {
   const predWinner = finalWinner(pred.homeScore, pred.awayScore, pred.homeScoreExtraTime, pred.awayScoreExtraTime, pred.homePenaltyScore, pred.awayPenaltyScore);
   const actualWinner = finalWinner(fixture.homeScore90, fixture.awayScore90, fixture.homeScoreExtraTime, fixture.awayScoreExtraTime, fixture.homePenaltyScore, fixture.awayPenaltyScore);
-  const outcomePoints = predWinner === actualWinner ? 1 : 0;
-  const exactScorePoints = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 2 : 0;
+  // All point values are doubled (outcome 2, exact 4, everything else 2) to make each bet swing harder.
+  const outcomePoints = predWinner === actualWinner ? 2 : 0;
+  const exactScorePoints = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 4 : 0;
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
-  const possessionPoints = pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0;
-  const firstGoalscorerPoints = pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0;
+  const possessionPoints = pred.possession && actualPossession && pred.possession === actualPossession ? 2 : 0;
+  const firstGoalscorerPoints = pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 2 : 0;
   // Correctly calling that the match goes the distance, regardless of the ET/penalty score itself.
-  const reachedExtraTimePoints = pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null && fixture.homeScoreExtraTime != null ? 1 : 0;
-  const extraTimePoints = fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 1 : 0;
-  const reachedPenaltiesPoints = pred.homePenaltyScore != null && pred.awayPenaltyScore != null && fixture.homePenaltyScore != null ? 1 : 0;
-  const penaltyPoints = fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 1 : 0;
+  const reachedExtraTimePoints = pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null && fixture.homeScoreExtraTime != null ? 2 : 0;
+  const extraTimePoints = fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 2 : 0;
+  const reachedPenaltiesPoints = pred.homePenaltyScore != null && pred.awayPenaltyScore != null && fixture.homePenaltyScore != null ? 2 : 0;
+  const penaltyPoints = fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 2 : 0;
   return { outcomePoints, exactScorePoints, possessionPoints, firstGoalscorerPoints, reachedExtraTimePoints, extraTimePoints, reachedPenaltiesPoints, penaltyPoints, totalPoints: outcomePoints + exactScorePoints + possessionPoints + firstGoalscorerPoints + reachedExtraTimePoints + extraTimePoints + reachedPenaltiesPoints + penaltyPoints };
 }

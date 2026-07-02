@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { fixtureOrder, currentEligiblePlayer, shouldReveal, scorePrediction, pointMultiplier } from '@/lib/domain';
+import { BallIcon, CheckIcon, SwapIcon, TargetIcon, TimerIcon, ZapIcon } from '@/components/icons';
 import { squads } from '@/lib/squads';
 import { flag } from '@/lib/flags';
 import { useIdentity } from '@/lib/useIdentity';
@@ -428,7 +429,7 @@ export default function MatchPage() {
 
                 {/* Possession */}
                 <div>
-                  <label className="block text-sm text-white/55 mb-1.5">🔄 Higher possession <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
+                  <label className="flex items-center gap-1.5 text-sm text-white/70 mb-1.5"><SwapIcon size={15} className="text-flood" /> Higher possession <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
                   <select className="field" value={possession} onChange={e => setPossession(e.target.value)}>
                     <option value="">Skip — no possession bet</option>
                     <option value="HOME">{fixture.homeTeam.name} (Home)</option>
@@ -439,7 +440,7 @@ export default function MatchPage() {
 
                 {/* First goalscorer */}
                 <div>
-                  <label className="block text-sm text-white/55 mb-1.5">⚽ First goalscorer <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
+                  <label className="flex items-center gap-1.5 text-sm text-white/70 mb-1.5"><BallIcon size={15} className="text-flood" /> First goalscorer <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></label>
                   <select className="field" value={firstGoalscorer} onChange={e => setFirstGoalscorer(e.target.value)}>
                     <option value="">Skip — no scorer bet</option>
                     <optgroup label={`${fixture.homeTeam.name}`}>
@@ -455,7 +456,7 @@ export default function MatchPage() {
                 <div className="glass-soft p-4 space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={hasET} onChange={e => { setHasET(e.target.checked); if (e.target.checked) { setHomeET(homeScore); setAwayET(awayScore); } }} className="w-5 h-5 accent-flood" />
-                    <span className="text-sm">⏱️ Bet on the score after extra time <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
+                    <span className="text-sm inline-flex items-center gap-1.5"><TimerIcon size={15} className="text-flood" /> Bet on the score after extra time <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
                   </label>
                   {hasET && (
                     <>
@@ -473,7 +474,7 @@ export default function MatchPage() {
                 <div className="glass-soft p-4 space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={hasPenalties} onChange={e => setHasPenalties(e.target.checked)} className="w-5 h-5 accent-flood" />
-                    <span className="text-sm">🥅 Bet on penalty shootout score <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
+                    <span className="text-sm inline-flex items-center gap-1.5"><TargetIcon size={15} className="text-flood" /> Bet on penalty shootout score <span className="text-flood">+{pointsMult} pt{pointsMult === 1 ? '' : 's'}</span></span>
                   </label>
                   {hasPenalties && (
                     <div className="flex items-center justify-center gap-4 pt-2">
@@ -513,7 +514,7 @@ export default function MatchPage() {
           <div className="flex items-center justify-between gap-2 mb-4">
             <h2 className="text-lg font-bold">Predictions &amp; Scoring</h2>
             {pointsMult > 1 && (
-              <span className="pill bg-gold/15 text-gold border border-gold/25 font-bold text-xs">⚡ {pointsMult}× points</span>
+              <span className="pill bg-gold/15 text-gold border border-gold/25 font-bold text-xs"><ZapIcon size={13} /> {pointsMult}× points</span>
             )}
           </div>
 
@@ -521,9 +522,7 @@ export default function MatchPage() {
             <div className="rounded-2xl bg-gold/8 border border-gold/25 p-4 mb-4">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <p className="text-gold text-xs uppercase tracking-wide font-semibold">Official result</p>
-                {result.source === 'auto'
-                  ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto-synced</span>
-                  : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>}
+                <span className="text-[0.68rem] text-white/50">{result.source === 'auto' ? 'auto-synced' : 'entered manually'}</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
@@ -578,7 +577,7 @@ export default function MatchPage() {
                   );
                 }
                 let pts: number | null = null;
-                let breakdown: string[] = [];
+                let breakdown: { label: string; pts: number; max: number }[] = [];
                 if (result) {
                   const fixture2 = {
                     id: fixture.id, kickoff,
@@ -596,13 +595,20 @@ export default function MatchPage() {
                     homePenaltyScore: pred.homePenaltyScore ?? null, awayPenaltyScore: pred.awayPenaltyScore ?? null,
                   }, fixture2);
                   pts = s.totalPoints;
+                  const m = s.multiplier;
                   breakdown = [
-                    `Outcome ${s.outcomePoints}/${1 * s.multiplier}`,
-                    `Score ${s.exactScorePoints}/${2 * s.multiplier}`,
-                    ...(pred.possession ? [`Poss ${s.possessionPoints}/${1 * s.multiplier}`] : []),
-                    ...(pred.firstGoalscorer ? [`Scorer ${s.firstGoalscorerPoints}/${1 * s.multiplier}`] : []),
-                    ...(result.homeScoreExtraTime != null ? [`ET reached ${s.reachedExtraTimePoints}/${1 * s.multiplier}`, `ET score ${s.extraTimePoints}/${1 * s.multiplier}`] : []),
-                    ...(result.homePenaltyScore != null ? [`Pens reached ${s.reachedPenaltiesPoints}/${1 * s.multiplier}`, `Pen score ${s.penaltyPoints}/${1 * s.multiplier}`] : []),
+                    { label: 'Outcome', pts: s.outcomePoints, max: 1 * m },
+                    { label: 'Score', pts: s.exactScorePoints, max: 2 * m },
+                    ...(pred.possession ? [{ label: 'Poss', pts: s.possessionPoints, max: 1 * m }] : []),
+                    ...(pred.firstGoalscorer ? [{ label: 'Scorer', pts: s.firstGoalscorerPoints, max: 1 * m }] : []),
+                    ...(result.homeScoreExtraTime != null ? [
+                      { label: 'ET reached', pts: s.reachedExtraTimePoints, max: 1 * m },
+                      { label: 'ET score', pts: s.extraTimePoints, max: 1 * m },
+                    ] : []),
+                    ...(result.homePenaltyScore != null ? [
+                      { label: 'Pens reached', pts: s.reachedPenaltiesPoints, max: 1 * m },
+                      { label: 'Pen score', pts: s.penaltyPoints, max: 1 * m },
+                    ] : []),
                   ];
                 }
                 const possLabel = pred.possession === 'HOME' ? fixture.homeTeam.name : pred.possession === 'AWAY' ? fixture.awayTeam.name : pred.possession === 'EQUAL' ? 'Equal' : null;
@@ -622,14 +628,28 @@ export default function MatchPage() {
                         )}
                       </div>
                     </div>
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-white/45">
+                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-white/60">
                       {possLabel && <span>Possession: {possLabel}</span>}
                       {pred.firstGoalscorer && <span>Scorer: {pred.firstGoalscorer}</span>}
                       {pred.homeScoreExtraTime != null && <span>FT: {pred.homeScore}–{pred.awayScore}</span>}
                       {pred.homePenaltyScore != null && <span>Pen: {pred.homePenaltyScore}–{pred.awayPenaltyScore}</span>}
                     </div>
                     {breakdown.length > 0 && (
-                      <p className="mt-1.5 text-[0.7rem] text-white/35">{breakdown.join(' · ')}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {breakdown.map(b => (
+                          <span
+                            key={b.label}
+                            className={`inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[0.68rem] font-semibold border tabular-nums ${
+                              b.pts > 0
+                                ? 'bg-grass/12 text-grass border-grass/25'
+                                : 'bg-white/4 text-white/40 border-white/10'
+                            }`}
+                          >
+                            {b.pts > 0 && <CheckIcon size={10} />}
+                            {b.label} {b.pts}/{b.max}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                 );

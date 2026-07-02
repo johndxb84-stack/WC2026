@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { currentEligiblePlayer, dateKeyInTimezone, fixtureOrder, scorePrediction, shouldReveal } from '@/lib/domain';
+import { currentEligiblePlayer, dateKeyInTimezone, fixtureOrder, scorePrediction, shouldReveal, pointMultiplier } from '@/lib/domain';
 import { flag } from '@/lib/flags';
+import { BallIcon, BellIcon, ChartIcon, UserIcon, ZapIcon } from '@/components/icons';
 import { useIdentity, PLAYERS, type PlayerName } from '@/lib/useIdentity';
 import { useNotifications } from '@/lib/useNotifications';
 import { fireConfetti } from '@/lib/confetti';
@@ -18,10 +19,9 @@ const PLAYER_COLORS: Record<string, string> = {
   Jean: '#fbbf24',
 };
 
+// Metadata, not status — plain text so it doesn't compete with the status pill.
 function SourceBadge({ source }: { source?: 'manual' | 'auto' }) {
-  return source === 'auto'
-    ? <span className="pill bg-flood/12 text-flood border border-flood/20">⚡ Auto</span>
-    : <span className="pill bg-white/8 text-white/55 border border-white/12">✍️ Manual</span>;
+  return <span className="text-[0.65rem] text-white/50">{source === 'auto' ? 'auto' : 'manual'}</span>;
 }
 
 type TeamInfo = { name: string; shortName: string | null; logoUrl: string | null };
@@ -492,16 +492,17 @@ export function Dashboard() {
       {/* ── Compact sticky header ── */}
       <header className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 h-12 border-b border-white/8"
         style={{ background: 'linear-gradient(180deg, rgba(8,4,18,0.88), rgba(13,8,32,0.80))', backdropFilter: 'blur(20px) saturate(160%)', WebkitBackdropFilter: 'blur(20px) saturate(160%)' }}>
-        <span className="font-black text-sm tracking-tight select-none">
-          ⚽ <span className="text-flood">ANJ</span> <span className="text-white/70">Predictions</span>
+        <span className="font-black text-sm tracking-tight select-none inline-flex items-center gap-1.5">
+          <span className="text-flood"><BallIcon size={17} /></span>
+          <span><span className="text-flood">ANJ</span> <span className="text-white/70">Predictions</span></span>
         </span>
         <div className="flex items-center gap-1.5">
           {idReady && me ? (
             <button onClick={clear} className="pill bg-flood/15 text-white border border-flood/30 hover:bg-flood/25 transition-colors text-xs">
-              👤 {me}
+              <UserIcon size={13} /> {me}
             </button>
           ) : idReady && !me ? (
-            <span className="text-white/40 text-xs">Pick player ↓</span>
+            <span className="text-white/55 text-xs">Pick player ↓</span>
           ) : null}
           <button
             onClick={() => load()}
@@ -523,8 +524,8 @@ export function Dashboard() {
       {/* ── Compact leaderboard strip ── always visible at top */}
       <div className="px-4 pt-3">
         <div className="flex items-center justify-between mb-2 px-0.5">
-          <span className="text-white/40 uppercase tracking-widest text-[0.6rem] font-semibold">Standings</span>
-          <span className="text-white/25 text-[0.6rem]">tap for stats</span>
+          <span className="text-white/55 uppercase tracking-widest text-[0.65rem] font-semibold">Standings</span>
+          <span className="text-white/45 text-[0.65rem]">tap for stats</span>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {sortedPlayers.map((p, i) => {
@@ -547,18 +548,18 @@ export function Dashboard() {
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-gold to-transparent" />
                 )}
                 {isMe && (
-                  <span className="absolute top-1.5 right-1.5 pill bg-flood/25 text-white border border-flood/40 text-[0.5rem] px-1.5 py-0.5 leading-none">You</span>
+                  <span className="absolute top-1.5 right-1.5 pill bg-flood/25 text-white border border-flood/40 text-[0.6rem] px-1.5 py-0.5 leading-none">You</span>
                 )}
                 {qs && qs.streak >= 2 && (
-                  <span className="absolute top-1.5 left-1.5 text-[0.6rem] font-bold text-gold leading-none">🔥{qs.streak}</span>
+                  <span className="absolute top-1.5 left-1.5 text-[0.65rem] font-bold text-gold leading-none">🔥{qs.streak}</span>
                 )}
                 <div className="text-xl leading-none">{MEDAL[i] ?? `#${i + 1}`}</div>
                 <h3 className="mt-1 text-sm font-black truncate">{p.name}</h3>
                 <p className={`mt-0.5 text-2xl font-black tabular-nums leading-none ${isLeader ? 'text-gold' : 'text-white'}`}>
                   {p.totalPoints}
                 </p>
-                <p className="text-[0.55rem] text-white/40 uppercase tracking-wide">pts</p>
-                <div className="mt-2 h-0.5 rounded-full overflow-hidden bg-white/8">
+                <p className="text-[0.65rem] text-white/55 uppercase tracking-wide">pts</p>
+                <div className="mt-2 h-1 rounded-full overflow-hidden bg-white/8">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -606,7 +607,7 @@ export function Dashboard() {
               disabled={notifLoading}
               className="pill bg-white/8 text-white/60 border border-white/12 hover:bg-white/15 transition-colors text-xs"
             >
-              {notifLoading ? '…' : '🔔 Enable notifications'}
+              {notifLoading ? '…' : <><BellIcon size={13} /> Enable notifications</>}
             </button>
           )}
           {notifStatus === 'subscribed' && (
@@ -615,7 +616,7 @@ export function Dashboard() {
               disabled={notifLoading}
               className="pill bg-grass/10 text-grass border border-grass/20 text-xs"
             >
-              🔔 Notifs on
+              <BellIcon size={13} /> Notifs on
             </button>
           )}
         </div>
@@ -626,7 +627,7 @@ export function Dashboard() {
         <div className="px-4 pt-3">
           <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 border border-flood/35 bg-flood/10">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base shrink-0">🔔</span>
+              <span className="shrink-0 text-flood"><BellIcon size={17} /></span>
               <span className="text-sm font-semibold truncate">
                 Your turn · {myTurnFixtures.length} match{myTurnFixtures.length > 1 ? 'es' : ''} waiting
               </span>
@@ -716,11 +717,14 @@ export function Dashboard() {
                           {/* Top meta row */}
                           <div className="flex items-center justify-between text-xs">
                             <div className="min-w-0 truncate">
-                              <span className="text-white/40">{f.venue ?? '—'}</span>
-                              {f.stage && <span className="text-white/25 ml-1.5">· {f.stage}</span>}
+                              <span className="text-white/55">{f.venue ?? '—'}</span>
+                              {f.stage && <span className="text-white/45 ml-1.5">· {f.stage}</span>}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
                               {result && <SourceBadge source={result.source} />}
+                              {pointMultiplier(kickoff) > 1 && (
+                                <span className="pill bg-gold/15 text-gold border border-gold/25 font-bold"><ZapIcon size={12} />2×</span>
+                              )}
                               {statusPill}
                             </div>
                           </div>
@@ -765,7 +769,7 @@ export function Dashboard() {
 
                             {/* Kickoff + countdown */}
                             <div className="text-center mt-1">
-                              <p className="text-white/50 text-sm">{formatKickoff(kickoff, todayKey, tomorrowKey)}</p>
+                              <p className="text-white/65 text-sm">{formatKickoff(kickoff, todayKey, tomorrowKey)}</p>
                               {cd && !isLocked && (
                                 <p className="text-flood font-black text-xl mt-0.5">{cd}</p>
                               )}
@@ -801,7 +805,7 @@ export function Dashboard() {
                                 );
                               })}
                             </div>
-                            <p className="mt-2 text-center text-xs text-white/50">
+                            <p className="mt-2 text-center text-xs text-white/65">
                               {isLocked
                                 ? `Betting closed · ${betCount}/3 placed`
                                 : current
@@ -895,8 +899,8 @@ export function Dashboard() {
               className="glass lift rounded-2xl p-4 flex items-center justify-between hover:bg-white/8 transition-colors"
             >
               <div>
-                <h2 className="font-bold text-sm">📊 Stats &amp; History</h2>
-                <p className="text-xs text-white/50 mt-0.5">Accuracy, streaks and head-to-head</p>
+                <h2 className="font-bold text-sm inline-flex items-center gap-1.5"><ChartIcon size={15} className="text-flood" /> Stats &amp; History</h2>
+                <p className="text-xs text-white/55 mt-0.5">Accuracy, streaks and head-to-head</p>
               </div>
               <span className="text-white/40 text-lg ml-4">→</span>
             </a>
@@ -932,14 +936,17 @@ export function Dashboard() {
                   <article key={f.id} className="glass lift rounded-3xl p-5 flex flex-col gap-4 opacity-90">
                     <div className="flex items-center justify-between text-xs">
                       <div>
-                        <span className="text-white/40">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
-                        {f.stage && <span className="text-white/25 ml-1.5">· {f.stage}</span>}
+                        <span className="text-white/55">{formatKickoff(kickoff, todayKey, tomorrowKey)}</span>
+                        {f.stage && <span className="text-white/45 ml-1.5">· {f.stage}</span>}
                       </div>
                       <div className="flex items-center gap-1.5">
                         {result && <SourceBadge source={result.source} />}
+                        {pointMultiplier(kickoff) > 1 && (
+                          <span className="pill bg-gold/15 text-gold border border-gold/25 font-bold"><ZapIcon size={12} />2×</span>
+                        )}
                         {result
                           ? <span className="pill bg-gold/12 text-gold border border-gold/20">Final</span>
-                          : <span className="pill bg-white/8 text-white/50">No result yet</span>
+                          : <span className="pill bg-white/8 text-white/55">No result yet</span>
                         }
                       </div>
                     </div>

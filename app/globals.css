@@ -319,16 +319,34 @@ input[type="number"] { -moz-appearance: textfield; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 0.6rem 0 0.7rem;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(240, 236, 255, 0.45);
+  color: rgba(240, 236, 255, 0.62);
   transition: color 0.15s ease;
 }
 .bottom-nav a .nav-ico,
-.bottom-nav button .nav-ico { font-size: 1.25rem; line-height: 1; transition: transform 0.15s ease; }
+.bottom-nav button .nav-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 21px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.nav-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
 .bottom-nav a:active .nav-ico,
 .bottom-nav button:active .nav-ico { transform: scale(0.85); }
 .bottom-nav a.active { color: var(--color-flood); }

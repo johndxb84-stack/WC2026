@@ -170,7 +170,12 @@ async function runSync() {
 
     const ft = pick(fixture.score.fulltime.home, fixture.score.fulltime.away);
     if (ft.home == null || ft.away == null) continue;
-    const et = pick(fixture.score.extratime.home, fixture.score.extratime.away);
+    // The provider reports extratime as goals scored DURING the ET period only.
+    // Our convention is the full score AFTER extra time, so add the 90' score.
+    const etPeriod = pick(fixture.score.extratime.home, fixture.score.extratime.away);
+    const et = etPeriod.home != null && etPeriod.away != null
+      ? { home: ft.home + etPeriod.home, away: ft.away + etPeriod.away }
+      : { home: null, away: null };
     const pen = pick(fixture.score.penalty.home, fixture.score.penalty.away);
 
     let homePossession: number | undefined;

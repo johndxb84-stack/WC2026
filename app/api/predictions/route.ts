@@ -197,6 +197,16 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = predSchema.parse(await request.json());
+    // ET fields hold the full score AFTER extra time — never lower than the 90' score.
+    if (
+      body.homeScoreExtraTime != null && body.awayScoreExtraTime != null &&
+      (body.homeScoreExtraTime < body.homeScore || body.awayScoreExtraTime < body.awayScore)
+    ) {
+      return NextResponse.json(
+        { ok: false, reason: 'The after-extra-time score cannot be lower than your 90-minute score — enter the full score at the end of extra time.' },
+        { status: 400 },
+      );
+    }
     const state = await readState();
 
     const withoutExisting = state.predictions.filter(
@@ -275,16 +285,19 @@ export async function PUT(request: Request) {
       const key = `${pred.fixtureId}:${pred.userName}`;
       const existing = merged.get(key);
       if (!existing || new Date(pred.submittedAt).getTime() >= new Date(existing.submittedAt).getTime()) {
+        const homeScore = Number(pred.homeScore);
+        const awayScore = Number(pred.awayScore);
         merged.set(key, {
           fixtureId: pred.fixtureId,
           userName: pred.userName,
-          homeScore: Number(pred.homeScore),
-          awayScore: Number(pred.awayScore),
+          homeScore,
+          awayScore,
           submittedAt: pred.submittedAt,
           possession: pred.possession,
           firstGoalscorer: pred.firstGoalscorer,
-          homeScoreExtraTime: pred.homeScoreExtraTime ?? null,
-          awayScoreExtraTime: pred.awayScoreExtraTime ?? null,
+          // ET is the full score AFTER extra time; clamp up so it can never sit below 90'.
+          homeScoreExtraTime: pred.homeScoreExtraTime != null ? Math.max(pred.homeScoreExtraTime, homeScore) : null,
+          awayScoreExtraTime: pred.awayScoreExtraTime != null ? Math.max(pred.awayScoreExtraTime, awayScore) : null,
           homePenaltyScore: pred.homePenaltyScore ?? null,
           awayPenaltyScore: pred.awayPenaltyScore ?? null,
         });

@@ -27,7 +27,7 @@ type ApiPrediction = {
 type ApiPlayer = { id: string; name: string; totalPoints: number };
 type DashboardData = { fixtures: ApiFixture[]; predictions: ApiPrediction[]; players: ApiPlayer[]; results?: Record<string, StoredResult> };
 
-function ScoreInput({ value, onChange, label, flag, side }: { value: number; onChange: (v: number) => void; label: string; flag?: string; side?: 'home' | 'away' }) {
+function ScoreInput({ value, onChange, label, flag, side, min = 0 }: { value: number; onChange: (v: number) => void; label: string; flag?: string; side?: 'home' | 'away'; min?: number }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
       {side && (
@@ -37,8 +37,8 @@ function ScoreInput({ value, onChange, label, flag, side }: { value: number; onC
       )}
       <span className="text-xs text-white/70 text-center max-w-[7rem] leading-tight font-semibold">{flag ? `${flag} ` : ''}{label}</span>
       <div className="flex items-center gap-3">
-        <button type="button" className="stepper" onClick={() => onChange(Math.max(0, value - 1))}>−</button>
-        <span className="w-9 text-center text-3xl font-black tabular-nums">{value}</span>
+        <button type="button" className="stepper" onClick={() => onChange(Math.max(min, value - 1))}>−</button>
+        <span className="w-9 text-center text-3xl font-black tabular-nums">{Math.max(min, value)}</span>
         <button type="button" className="stepper" onClick={() => onChange(value + 1)}>+</button>
       </div>
     </div>
@@ -201,7 +201,7 @@ export default function MatchPage() {
         awayScore,
         ...(possession ? { possession } : {}),
         ...(firstGoalscorer ? { firstGoalscorer } : {}),
-        ...(hasET ? { homeScoreExtraTime: homeET, awayScoreExtraTime: awayET } : {}),
+        ...(hasET ? { homeScoreExtraTime: Math.max(homeET, homeScore), awayScoreExtraTime: Math.max(awayET, awayScore) } : {}),
         ...(hasPenalties ? { homePenaltyScore: homePenalty, awayPenaltyScore: awayPenalty } : {}),
       };
       const resp = await fetch('/api/predictions', {
@@ -238,7 +238,7 @@ export default function MatchPage() {
         homePossession: rHomePoss,
         awayPossession: 100 - rHomePoss,
         firstGoalscorer: rFirstScorer || null,
-        ...(rHasET ? { homeScoreExtraTime: rHomeET, awayScoreExtraTime: rAwayET } : {}),
+        ...(rHasET ? { homeScoreExtraTime: Math.max(rHomeET, rHome90), awayScoreExtraTime: Math.max(rAwayET, rAway90) } : {}),
         ...(rHasPenalties ? { homePenaltyScore: rHomePenalty, awayPenaltyScore: rAwayPenalty } : {}),
       };
       const resp = await fetch('/api/results', {
@@ -462,9 +462,9 @@ export default function MatchPage() {
                     <>
                       <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
                       <div className="flex items-center justify-center gap-4 pt-2">
-                        <ScoreInput value={homeET} onChange={setHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                        <ScoreInput value={homeET} onChange={setHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" min={homeScore} />
                         <span className="text-2xl text-white/25 font-black mt-8">–</span>
-                        <ScoreInput value={awayET} onChange={setAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
+                        <ScoreInput value={awayET} onChange={setAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" min={awayScore} />
                       </div>
                     </>
                   )}
@@ -706,9 +706,9 @@ export default function MatchPage() {
                   <>
                     <p className="text-xs text-white/40 text-center">Full score at the end of extra time (120′), not just the goals scored in ET.</p>
                     <div className="flex items-center justify-center gap-4 pt-2">
-                      <ScoreInput value={rHomeET} onChange={setRHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" />
+                      <ScoreInput value={rHomeET} onChange={setRHomeET} label={fixture.homeTeam.name} flag={homeFlag} side="home" min={rHome90} />
                       <span className="text-2xl text-white/25 font-black mt-8">–</span>
-                      <ScoreInput value={rAwayET} onChange={setRAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" />
+                      <ScoreInput value={rAwayET} onChange={setRAwayET} label={fixture.awayTeam.name} flag={awayFlag} side="away" min={rAway90} />
                     </div>
                   </>
                 )}

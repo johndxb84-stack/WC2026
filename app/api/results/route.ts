@@ -33,6 +33,17 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = resultSchema.parse(await request.json());
+    // The extra-time fields hold the full score AFTER extra time (90' + ET goals),
+    // so they can never be lower than the 90' score.
+    if (
+      body.homeScoreExtraTime != null && body.awayScoreExtraTime != null &&
+      (body.homeScoreExtraTime < body.homeScore90 || body.awayScoreExtraTime < body.awayScore90)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'The after-extra-time score cannot be lower than the 90-minute score — enter the full score at the end of extra time, not just the ET goals.' },
+        { status: 400 },
+      );
+    }
     const result: StoredResult = {
       fixtureId: body.fixtureId,
       homeScore90: body.homeScore90,

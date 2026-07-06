@@ -3,7 +3,7 @@ export const squads: Record<string, string[]> = {
     'Unai Simón', 'David Raya', 'Alex Remiro',
     'Dani Carvajal', 'Alejandro Balde', 'Aymeric Laporte', 'Robin Le Normand', 'Nacho', 'Pau Cubarsí',
     'Pedri', 'Gavi', 'Rodri', 'Fabián Ruiz', 'Dani Olmo', 'Mikel Merino', 'Martín Zubimendi',
-    'Lamine Yamal', 'Nico Williams', 'Álvaro Morata', 'Ayoze Pérez', 'Ferran Torres', 'Joselu', 'Bryan Gil',
+    'Lamine Yamal', 'Nico Williams', 'Álvaro Morata', 'Ayoze Pérez', 'Ferran Torres', 'Joselu', 'Bryan Gil', 'Mikel Oyarzabal',
   ],
   'Cabo Verde': [
     'Josimar Vozinha', 'Carlos Baptista',

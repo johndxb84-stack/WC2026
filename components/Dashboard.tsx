@@ -66,6 +66,29 @@ function parsePhase(stage: string | null | undefined): string {
   return stage;
 }
 
+// WC 2026 knockout bracket — total matches in each round. The provider only publishes
+// a round's fixtures once the teams are known, so the later rounds (semis, final, third
+// place) aren't on the schedule yet. We use these totals to count every game still to be
+// played across the whole tournament, not just the handful currently scheduled.
+const KNOCKOUT_ROUND_TOTALS: [round: string, total: number][] = [
+  ['Round of 32', 16],
+  ['Round of 16', 8],
+  ['Quarter-finals', 4],
+  ['Semi-finals', 2],
+  ['Third place', 1],
+  ['Final', 1],
+];
+function knockoutRoundOf(stage: string | null | undefined): string | null {
+  if (!stage) return null;
+  if (/round of 32/i.test(stage)) return 'Round of 32';
+  if (/round of 16/i.test(stage)) return 'Round of 16';
+  if (/quarter/i.test(stage)) return 'Quarter-finals';
+  if (/semi/i.test(stage)) return 'Semi-finals';
+  if (/third|3rd/i.test(stage)) return 'Third place';
+  if (/final/i.test(stage)) return 'Final'; // checked after quarter/semi so it only matches the final itself
+  return null;
+}
+
 function pointsForPrediction(pred: ApiPrediction, result: StoredResult, kickoff: Date): number {
   return scorePrediction(
     {
@@ -463,16 +486,31 @@ export function Dashboard() {
   }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
   // ── Title race: can the chasers still catch the leader? ──
-  // Every remaining (unsettled) game is worth at most a full correct bet — 9 points,
-  // doubled to 18 for games from 1 July — so the most any single player can still gain
-  // is that maximum on each game left. A chaser can overtake the leader only if that
-  // ceiling clears the current gap (worst case for the leader, they score 0 the rest of the way).
+  // "Games left" is every match still to be played in the rest of the tournament, not just
+  // the ones currently on the schedule. Games already scheduled and unplayed come from the
+  // deck (upcomingFixtures); the later rounds the provider hasn't published yet (their teams
+  // aren't decided) are counted from the knockout bracket. Each game is worth at most a full
+  // correct bet — 9 points, doubled to 18 in the July (post-1-July) rounds — so a chaser can
+  // still overtake the leader only if the points still in play clear their gap (worst case for
+  // the leader, they score nothing the rest of the way).
   const MAX_BET_POINTS = 9;
-  const pointsStillInPlay = upcomingFixtures.reduce(
+  const scheduledRemainingPoints = upcomingFixtures.reduce(
     (sum, f) => sum + MAX_BET_POINTS * pointMultiplier(new Date(f.scheduledKickoff)),
     0,
   );
-  const gamesLeft = upcomingFixtures.length;
+  const knownPerRound: Record<string, number> = {};
+  for (const f of data.fixtures) {
+    const round = knockoutRoundOf(f.stage);
+    if (round) knownPerRound[round] = (knownPerRound[round] ?? 0) + 1;
+  }
+  // Games in rounds not yet on the schedule (semis, final, third place). They're all played
+  // in July, so each is worth the full doubled bet.
+  const unscheduledGamesLeft = KNOCKOUT_ROUND_TOTALS.reduce(
+    (sum, [round, total]) => sum + Math.max(0, total - (knownPerRound[round] ?? 0)),
+    0,
+  );
+  const gamesLeft = upcomingFixtures.length + unscheduledGamesLeft;
+  const pointsStillInPlay = scheduledRemainingPoints + unscheduledGamesLeft * MAX_BET_POINTS * 2;
   const leaderName = sortedPlayers[0]?.name ?? '';
   const titleRace = sortedPlayers.slice(1).map(p => {
     const gap = leaderPts - p.totalPoints;

@@ -462,6 +462,23 @@ export function Dashboard() {
     return kickoff.getTime() > now.getTime() - 3 * 60 * 60 * 1000;
   }).sort((a, b) => new Date(a.scheduledKickoff).getTime() - new Date(b.scheduledKickoff).getTime());
 
+  // ── Title race: can the chasers still catch the leader? ──
+  // Every remaining (unsettled) game is worth at most a full correct bet — 9 points,
+  // doubled to 18 for games from 1 July — so the most any single player can still gain
+  // is that maximum on each game left. A chaser can overtake the leader only if that
+  // ceiling clears the current gap (worst case for the leader, they score 0 the rest of the way).
+  const MAX_BET_POINTS = 9;
+  const pointsStillInPlay = upcomingFixtures.reduce(
+    (sum, f) => sum + MAX_BET_POINTS * pointMultiplier(new Date(f.scheduledKickoff)),
+    0,
+  );
+  const gamesLeft = upcomingFixtures.length;
+  const leaderName = sortedPlayers[0]?.name ?? '';
+  const titleRace = sortedPlayers.slice(1).map(p => {
+    const gap = leaderPts - p.totalPoints;
+    return { name: p.name, gap, canOvertake: pointsStillInPlay > gap, canTie: pointsStillInPlay >= gap };
+  });
+
   const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
   const pastFixtures = data.fixtures.filter(f => {
     const kickoff = new Date(f.scheduledKickoff);
@@ -521,6 +538,43 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* ── Title race ── gaps to the leader + whether the chasers can still catch up */}
+      {leaderPts > 0 && titleRace.length > 0 && (
+        <div className="px-4 pt-3">
+          <div className="glass rounded-2xl p-3">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <span className="text-white/55 uppercase tracking-widest text-[0.65rem] font-semibold inline-flex items-center gap-1.5">
+                <ZapIcon size={12} className="text-gold" /> Title Race
+              </span>
+              <span className="text-white/45 text-[0.65rem]">
+                {gamesLeft > 0 ? <>{gamesLeft} game{gamesLeft > 1 ? 's' : ''} left · up to {pointsStillInPlay} pts</> : 'All games played'}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {titleRace.map(r => {
+                const color = playerColor(r.name);
+                const verdict = gamesLeft === 0
+                  ? { text: 'Season over', cls: 'bg-white/8 text-white/50 border-white/15' }
+                  : r.canOvertake
+                    ? { text: `Can still pass ${leaderName}`, cls: 'bg-grass/12 text-grass border-grass/25' }
+                    : r.canTie
+                      ? { text: `Can only tie ${leaderName}`, cls: 'bg-gold/12 text-gold border-gold/25' }
+                      : { text: `Can't catch ${leaderName}`, cls: 'bg-rose/12 text-rose border-rose/25' };
+                return (
+                  <div key={r.name} className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-sm font-semibold" style={{ color }}>{r.name}</span>
+                      <span className="tabular-nums text-white/55 text-xs">−{r.gap} to {leaderName}</span>
+                    </span>
+                    <span className={`pill border text-[0.65rem] shrink-0 ${verdict.cls}`}>{verdict.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Compact leaderboard strip ── always visible at top */}
       <div className="px-4 pt-3">
         <div className="flex items-center justify-between mb-2 px-0.5">
@@ -559,6 +613,12 @@ export function Dashboard() {
                   {p.totalPoints}
                 </p>
                 <p className="text-[0.65rem] text-white/55 uppercase tracking-wide">pts</p>
+                {leaderPts > 0 && (
+                  <p className="mt-0.5 text-[0.62rem] font-semibold tabular-nums leading-none"
+                     style={{ color: isLeader ? '#fbbf24' : 'rgba(255,255,255,0.5)' }}>
+                    {isLeader ? 'Leader' : `−${leaderPts - p.totalPoints}`}
+                  </p>
+                )}
                 <div className="mt-2 h-1 rounded-full overflow-hidden bg-white/8">
                   <div
                     className="h-full rounded-full"

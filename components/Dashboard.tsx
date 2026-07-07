@@ -576,43 +576,6 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* ── Title race ── gaps to the leader + whether the chasers can still catch up */}
-      {leaderPts > 0 && titleRace.length > 0 && (
-        <div className="px-4 pt-3">
-          <div className="glass rounded-2xl p-3">
-            <div className="flex items-center justify-between mb-2 px-0.5">
-              <span className="text-white/55 uppercase tracking-widest text-[0.65rem] font-semibold inline-flex items-center gap-1.5">
-                <ZapIcon size={12} className="text-gold" /> Title Race
-              </span>
-              <span className="text-white/45 text-[0.65rem]">
-                {gamesLeft > 0 ? <>{gamesLeft} game{gamesLeft > 1 ? 's' : ''} left · up to {pointsStillInPlay} pts</> : 'All games played'}
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {titleRace.map(r => {
-                const color = playerColor(r.name);
-                const verdict = gamesLeft === 0
-                  ? { text: 'Season over', cls: 'bg-white/8 text-white/50 border-white/15' }
-                  : r.canOvertake
-                    ? { text: `Can still pass ${leaderName}`, cls: 'bg-grass/12 text-grass border-grass/25' }
-                    : r.canTie
-                      ? { text: `Can only tie ${leaderName}`, cls: 'bg-gold/12 text-gold border-gold/25' }
-                      : { text: `Can't catch ${leaderName}`, cls: 'bg-rose/12 text-rose border-rose/25' };
-                return (
-                  <div key={r.name} className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-baseline gap-1.5 min-w-0">
-                      <span className="text-sm font-semibold" style={{ color }}>{r.name}</span>
-                      <span className="tabular-nums text-white/55 text-xs">−{r.gap} to {leaderName}</span>
-                    </span>
-                    <span className={`pill border text-[0.65rem] shrink-0 ${verdict.cls}`}>{verdict.text}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Compact leaderboard strip ── always visible at top */}
       <div className="px-4 pt-3">
         <div className="flex items-center justify-between mb-2 px-0.5">
@@ -672,6 +635,73 @@ export function Dashboard() {
           })}
         </div>
       </div>
+
+      {/* ── Title race ── big and loud: gaps to the leader + can the chasers still catch up */}
+      {leaderPts > 0 && titleRace.length > 0 && (
+        <div className="px-4 pt-3">
+          <div className="relative glass rounded-3xl p-5 overflow-hidden ring-1 ring-gold/40 leader-glow">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-gold to-transparent" />
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="font-black text-lg tracking-tight inline-flex items-center gap-2">
+                <span className="text-gold"><ZapIcon size={20} /></span> Title Race
+              </h2>
+              <div className="text-right leading-tight">
+                {gamesLeft > 0 ? (
+                  <>
+                    <p className="text-gold font-black text-xl tabular-nums leading-none">{gamesLeft} games left</p>
+                    <p className="text-white/55 text-[0.7rem] mt-0.5">up to <span className="font-bold text-white/80">{pointsStillInPlay} pts</span> still in play</p>
+                  </>
+                ) : (
+                  <p className="text-white/60 font-bold text-sm">All games played</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-4">
+              {titleRace.map(r => {
+                const color = playerColor(r.name);
+                const verdict = gamesLeft === 0
+                  ? { text: 'Season over', cls: 'bg-white/8 text-white/50 border-white/15' }
+                  : r.canOvertake
+                    ? { text: `Can still pass ${leaderName} 🚀`, cls: 'bg-grass/15 text-grass border-grass/30' }
+                    : r.canTie
+                      ? { text: `Can only tie ${leaderName}`, cls: 'bg-gold/15 text-gold border-gold/30' }
+                      : { text: `Can't catch ${leaderName} 🔒`, cls: 'bg-rose/15 text-rose border-rose/30' };
+                // How much of the remaining points ceiling this gap eats — full bar = out of reach.
+                const gapShare = pointsStillInPlay > 0 ? Math.min(1, r.gap / pointsStillInPlay) : 1;
+                return (
+                  <div key={r.name}>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="inline-flex items-baseline gap-2 min-w-0">
+                        <span className="text-base font-black truncate" style={{ color }}>{r.name}</span>
+                        <span className="tabular-nums font-black text-xl text-white">−{r.gap}</span>
+                        <span className="text-white/50 text-xs">to {leaderName}</span>
+                      </span>
+                      <span className={`pill border text-xs font-bold shrink-0 ${verdict.cls}`}>{verdict.text}</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden bg-white/8">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max(4, Math.round(gapShare * 100))}%`,
+                          background: `linear-gradient(90deg, ${color}, ${gapShare < 0.5 ? '#34d399' : gapShare < 1 ? '#fbbf24' : '#f87171'})`,
+                          transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[0.65rem] text-white/45">
+                      {gamesLeft > 0 && (r.canOvertake
+                        ? <>needs {r.gap + 1} of the {pointsStillInPlay} pts left to pass</>
+                        : r.canTie
+                          ? <>needs every single point left to tie</>
+                          : <>gap bigger than the {pointsStillInPlay} pts left</>)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Identity picker */}
       {idReady && !me && (

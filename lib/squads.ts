@@ -230,7 +230,7 @@ export const squads: Record<string, string[]> = {
     'Yassine Bounou', 'Munir Mohamedi', 'Ahmed Reda Tagnaouti',
     'Achraf Hakimi', 'Noussair Mazraoui', 'Romain Saïss', 'Nayef Aguerd', 'Jawad El Yamiq', 'Adam Masina',
     'Azzedine Ounahi', 'Sofyan Amrabat', 'Selim Amallah', 'Bilal El Khannous', 'Amine Harit',
-    'Hakim Ziyech', 'Youssef En-Nesyri', 'Abdessamad Ezzalzouli', 'Sofiane Boufal', 'Anass Zaroury', 'Ryan Mmaee',
+    'Hakim Ziyech', 'Youssef En-Nesyri', 'Abdessamad Ezzalzouli', 'Sofiane Boufal', 'Anass Zaroury', 'Ryan Mmaee', 'Soufiane Rahimi',
   ],
   'Japan': [
     'Shuichi Gonda', 'Zion Suzuki', 'Kosuke Nakamura',

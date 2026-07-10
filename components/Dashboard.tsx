@@ -708,13 +708,15 @@ export function Dashboard() {
                 const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 return (
                   <div key={r.name}>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="inline-flex items-baseline gap-2 min-w-0">
-                        <span className="text-base font-black truncate" style={{ color }}>{r.name}</span>
-                        <span className="tabular-nums font-black text-xl text-white">−{r.gap}</span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-lg font-black" style={{ color }}>{r.name}</span>
+                      <span className="inline-flex items-baseline gap-1.5">
+                        <span className="tabular-nums font-black text-2xl text-white leading-none">−{r.gap}</span>
                         <span className="text-white/50 text-xs">to {leaderName}</span>
                       </span>
-                      <span className={`pill border text-xs font-bold shrink-0 ${verdict.cls}`}>{verdict.text}</span>
+                    </div>
+                    <div className="mt-1.5 mb-1.5">
+                      <span className={`pill border text-xs font-bold ${verdict.cls}`}>{verdict.text}</span>
                     </div>
                     <div className="h-2 rounded-full overflow-hidden bg-white/8">
                       <div
@@ -726,12 +728,12 @@ export function Dashboard() {
                         }}
                       />
                     </div>
-                    <p className="mt-1 text-[0.65rem] text-white/45">
+                    <p className="mt-1.5 text-xs text-white/60 leading-snug">
                       {gamesLeft > 0 && (r.canTie
                         ? leaderAvg > 0
                           ? <>
-                              needs ~<span className="font-bold text-white/70">{fmt(r.neededAvg)} pts/game</span> if {leaderName} keeps
-                              his <span className="font-bold text-white/70">{fmt(leaderAvg)}</span> pace · currently averages <span className="font-bold text-white/70">{fmt(r.avg)}</span>
+                              needs ~<span className="font-bold text-white/90">{fmt(r.neededAvg)} pts/game</span> if {leaderName} keeps
+                              his <span className="font-bold text-white/90">{fmt(leaderAvg)}</span> pace · currently averages <span className="font-bold text-white/90">{fmt(r.avg)}</span>
                             </>
                           : <>needs {r.gap + 1} of the {pointsStillInPlay} pts left to pass</>
                         : <>gap bigger than the {pointsStillInPlay} pts left — nothing to play for but pride</>)}

@@ -512,9 +512,41 @@ export function Dashboard() {
   const gamesLeft = upcomingFixtures.length + unscheduledGamesLeft;
   const pointsStillInPlay = scheduledRemainingPoints + unscheduledGamesLeft * MAX_BET_POINTS * 2;
   const leaderName = sortedPlayers[0]?.name ?? '';
+
+  // Historical scoring rate per player, normalised to current-era (2×) points per game —
+  // every remaining game is doubled, so old single-value games are converted before averaging.
+  // This lets the verdict reflect what's LIKELY (everyone keeps their pace), not just what's
+  // mathematically possible if the leader scores nothing.
+  const rateAcc: Record<string, { base: number; games: number }> = {};
+  for (const pred of data.predictions) {
+    if (!pred.submittedAt) continue;
+    const res = data.results?.[pred.fixtureId];
+    if (!res) continue;
+    const kickoff = kickoffOf(data, pred.fixtureId);
+    const acc = (rateAcc[pred.user.name] ??= { base: 0, games: 0 });
+    acc.base += pointsForPrediction(pred, res, kickoff) / pointMultiplier(kickoff);
+    acc.games += 1;
+  }
+  const avgPerGame = (name: string) => {
+    const acc = rateAcc[name];
+    return acc && acc.games > 0 ? (acc.base / acc.games) * 2 : 0;
+  };
+  const MAX_PER_GAME = MAX_BET_POINTS * 2;
+  const leaderAvg = avgPerGame(leaderName);
   const titleRace = sortedPlayers.slice(1).map(p => {
     const gap = leaderPts - p.totalPoints;
-    return { name: p.name, gap, canOvertake: pointsStillInPlay > gap, canTie: pointsStillInPlay >= gap };
+    const avg = avgPerGame(p.name);
+    // To finish ahead while the leader keeps scoring at their usual rate, the chaser
+    // must average the leader's rate plus enough extra to erase the gap.
+    const neededAvg = gamesLeft > 0 ? gap / gamesLeft + leaderAvg : Infinity;
+    const projectedGap = gap + (leaderAvg - avg) * gamesLeft;
+    return {
+      name: p.name, gap, avg, neededAvg,
+      canOvertake: pointsStillInPlay > gap,
+      canTie: pointsStillInPlay >= gap,
+      onPace: projectedGap < 0,
+      realistic: neededAvg <= MAX_PER_GAME,
+    };
   });
 
   const betFixtureIds = new Set(data.predictions.filter(p => p.submittedAt).map(p => p.fixtureId));
@@ -659,15 +691,21 @@ export function Dashboard() {
             <div className="space-y-4">
               {titleRace.map(r => {
                 const color = playerColor(r.name);
+                // Verdict assumes everyone keeps scoring at their season pace — not that the
+                // leader suddenly scores nothing. Tiers: on pace to pass → realistic with a
+                // hot streak → alive only if the leader slips → mathematically out.
                 const verdict = gamesLeft === 0
                   ? { text: 'Season over', cls: 'bg-white/8 text-white/50 border-white/15' }
-                  : r.canOvertake
-                    ? { text: `Can still pass ${leaderName} 🚀`, cls: 'bg-grass/15 text-grass border-grass/30' }
-                    : r.canTie
-                      ? { text: `Can only tie ${leaderName}`, cls: 'bg-gold/15 text-gold border-gold/30' }
-                      : { text: `Can't catch ${leaderName} 🔒`, cls: 'bg-rose/15 text-rose border-rose/30' };
-                // How much of the remaining points ceiling this gap eats — full bar = out of reach.
-                const gapShare = pointsStillInPlay > 0 ? Math.min(1, r.gap / pointsStillInPlay) : 1;
+                  : !r.canTie
+                    ? { text: `Out of reach 🔒`, cls: 'bg-rose/15 text-rose border-rose/30' }
+                    : r.onPace
+                      ? { text: `On pace to pass ${leaderName} 🚀`, cls: 'bg-grass/15 text-grass border-grass/30' }
+                      : r.realistic
+                        ? { text: `Alive — needs a hot streak 🔥`, cls: 'bg-gold/15 text-gold border-gold/30' }
+                        : { text: `Only if ${leaderName} slips ⚠️`, cls: 'bg-rose/15 text-rose border-rose/30' };
+                // How much of the realistic per-game ceiling the required pace eats — full bar = needs perfection or better.
+                const paceShare = gamesLeft === 0 || !r.canTie ? 1 : Math.min(1, r.neededAvg / MAX_PER_GAME);
+                const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 return (
                   <div key={r.name}>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -682,18 +720,21 @@ export function Dashboard() {
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${Math.max(4, Math.round(gapShare * 100))}%`,
-                          background: `linear-gradient(90deg, ${color}, ${gapShare < 0.5 ? '#34d399' : gapShare < 1 ? '#fbbf24' : '#f87171'})`,
+                          width: `${Math.max(4, Math.round(paceShare * 100))}%`,
+                          background: `linear-gradient(90deg, ${color}, ${paceShare < 0.5 ? '#34d399' : paceShare < 1 ? '#fbbf24' : '#f87171'})`,
                           transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
                         }}
                       />
                     </div>
                     <p className="mt-1 text-[0.65rem] text-white/45">
-                      {gamesLeft > 0 && (r.canOvertake
-                        ? <>needs {r.gap + 1} of the {pointsStillInPlay} pts left to pass</>
-                        : r.canTie
-                          ? <>needs every single point left to tie</>
-                          : <>gap bigger than the {pointsStillInPlay} pts left</>)}
+                      {gamesLeft > 0 && (r.canTie
+                        ? leaderAvg > 0
+                          ? <>
+                              needs ~<span className="font-bold text-white/70">{fmt(r.neededAvg)} pts/game</span> if {leaderName} keeps
+                              his <span className="font-bold text-white/70">{fmt(leaderAvg)}</span> pace · currently averages <span className="font-bold text-white/70">{fmt(r.avg)}</span>
+                            </>
+                          : <>needs {r.gap + 1} of the {pointsStillInPlay} pts left to pass</>
+                        : <>gap bigger than the {pointsStillInPlay} pts left — nothing to play for but pride</>)}
                     </p>
                   </div>
                 );

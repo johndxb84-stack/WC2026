@@ -252,7 +252,10 @@ export async function POST(request: Request) {
         const domainPreds = updatedPreds
           .filter(p => p.fixtureId === fixture.id && p.submittedAt)
           .map(p => ({ userName: p.userName, homeScore: p.homeScore, awayScore: p.awayScore, submittedAt: new Date(p.submittedAt) }));
-        const order = fixtureOrder(kickoff, fixture.venue, fixture.homeTeam, fixture.awayTeam);
+        const order = fixtureOrder(
+          kickoff, fixture.venue, fixture.homeTeam, fixture.awayTeam,
+          allFixtures.map(f => (f.kickoff instanceof Date ? f.kickoff : new Date(f.kickoff))),
+        );
         const next = currentEligiblePlayer(order, domainPreds);
         if (next && next !== body.userName) {
           const timeStr = kickoff.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });

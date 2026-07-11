@@ -558,12 +558,15 @@ export function Dashboard() {
 
   const nextFixture = upcomingFixtures.find(f => new Date(f.scheduledKickoff).getTime() > now.getTime());
 
+  // Full tournament kickoff schedule — drives the per-game betting-order rotation.
+  const allKickoffs = data.fixtures.map(f => new Date(f.scheduledKickoff));
+
   const myTurnFixtures = me
     ? upcomingFixtures.filter(f => {
         const kickoff = new Date(f.scheduledKickoff);
         if (now >= kickoff) return false;
         const preds = toDomainPreds(data.predictions, f.id);
-        return currentEligiblePlayer(fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name), preds) === me;
+        return currentEligiblePlayer(fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name, allKickoffs), preds) === me;
       })
     : [];
 
@@ -860,7 +863,7 @@ export function Dashboard() {
                 >
                   {filteredUpcoming.map(f => {
                     const kickoff = new Date(f.scheduledKickoff);
-                    const betOrder = fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name);
+                    const betOrder = fixtureOrder(kickoff, f.venue, f.homeTeam.name, f.awayTeam.name, allKickoffs);
                     const preds = toDomainPreds(data.predictions, f.id);
                     const current = currentEligiblePlayer(betOrder, preds);
                     const reveal = shouldReveal(betOrder, preds, { id: f.id, kickoff }, now);

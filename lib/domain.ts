@@ -73,10 +73,40 @@ export function orderForVenueDate(kickoff: Date, venue: string | null): string[]
   return [...ROTATION[idx]];
 }
 
+// From 11 July 2026 the betting order rotates per GAME, not per calendar day.
+// The old daily rotation skipped rest days, so the same player could end up
+// first on several consecutive matches (e.g. the last QF and the first semi).
+export const PER_GAME_ROTATION_FROM = new Date('2026-07-11T00:00:00Z');
+// Offset chosen so the games already bet on stay consistent (Anthony had already
+// placed first bets on both 11-July quarter-finals) and the France v Spain semi
+// lands on Nicolas — from there every game hands "first" to the next player.
+const PER_GAME_ROTATION_START = 1;
+
+// Order for a game under per-game rotation: its index is how many games (across
+// the whole tournament schedule) kick off between the cutoff and this game.
+export function perGameRotationOrder(kickoff: Date, allKickoffs: Date[]): string[] {
+  const idx = allKickoffs.filter(
+    k => k.getTime() >= PER_GAME_ROTATION_FROM.getTime() && k.getTime() < kickoff.getTime(),
+  ).length;
+  return [...ROTATION[(PER_GAME_ROTATION_START + idx) % 3]];
+}
+
 // Use this everywhere instead of calling orderForVenueDate directly.
-// Checks for a hardcoded per-match override first, then falls back to rotation.
-export function fixtureOrder(kickoff: Date, venue: string | null, homeTeam: string, awayTeam: string): string[] {
-  return customFixtureOrder(homeTeam, awayTeam) ?? orderForVenueDate(kickoff, venue);
+// Priority: hardcoded per-match override → per-game rotation (games from 11 July,
+// when the caller can supply the full kickoff schedule) → daily venue-date rotation.
+export function fixtureOrder(
+  kickoff: Date,
+  venue: string | null,
+  homeTeam: string,
+  awayTeam: string,
+  allKickoffs?: Date[],
+): string[] {
+  const custom = customFixtureOrder(homeTeam, awayTeam);
+  if (custom) return custom;
+  if (allKickoffs && kickoff.getTime() >= PER_GAME_ROTATION_FROM.getTime()) {
+    return perGameRotationOrder(kickoff, allKickoffs);
+  }
+  return orderForVenueDate(kickoff, venue);
 }
 
 export function outcome(home: number, away: number): Outcome { return home > away ? 'HOME' : away > home ? 'AWAY' : 'DRAW'; }

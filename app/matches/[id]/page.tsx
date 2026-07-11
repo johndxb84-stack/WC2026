@@ -128,7 +128,10 @@ export default function MatchPage() {
   const isLocked = now >= kickoff;
   const minutesUntilKickoff = (kickoff.getTime() - now.getTime()) / 60_000;
   const canEdit = !isLocked && minutesUntilKickoff > 30;
-  const betOrder = fixtureOrder(kickoff, fixture.venue, fixture.homeTeam.name, fixture.awayTeam.name);
+  const betOrder = fixtureOrder(
+    kickoff, fixture.venue, fixture.homeTeam.name, fixture.awayTeam.name,
+    data.fixtures.map(f => new Date(f.scheduledKickoff)),
+  );
 
   const preds = data.predictions
     .filter(p => p.fixtureId === fixture.id && p.status !== 'WAITING' && p.submittedAt)

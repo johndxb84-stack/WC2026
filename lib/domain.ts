@@ -144,13 +144,18 @@ export function scorePrediction(pred: {homeScore:number; awayScore:number; posse
   // Point values double for games from NEW_POINTS_FROM onward; earlier games keep their original values.
   const m = pointMultiplier(fixture.kickoff);
   const outcomePoints = (predWinner === actualWinner ? 1 : 0) * m;
-  // The predicted scoreline earns exact-score points if it matches the 90' score
-  // OR, when the game went to extra time, the final after-ET score — calling the
-  // final scoreline of an ET game is at least as hard as calling the 90' one.
+  // Guessing the FINAL scoreline earns the exact-score points no matter which slot
+  // it was written in: the 90' line matching the 90' score (classic), the 90' line
+  // matching the after-ET score of an ET game, or the after-ET line matching the
+  // full-time score of a game that never reached ET (that line is otherwise ignored,
+  // while an AET line matching a real ET game already pays via the ET components).
   const matches90 = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90;
   const matchesET = fixture.homeScoreExtraTime != null && fixture.awayScoreExtraTime != null
     && pred.homeScore === fixture.homeScoreExtraTime && pred.awayScore === fixture.awayScoreExtraTime;
-  const exactScorePoints = (matches90 || matchesET ? 2 : 0) * m;
+  const noET = fixture.homeScoreExtraTime == null || fixture.awayScoreExtraTime == null;
+  const aetSlotMatchesFT = noET && pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null
+    && pred.homeScoreExtraTime === fixture.homeScore90 && pred.awayScoreExtraTime === fixture.awayScore90;
+  const exactScorePoints = (matches90 || matchesET || aetSlotMatchesFT ? 2 : 0) * m;
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
   const possessionPoints = (pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0) * m;
   const firstGoalscorerPoints = (pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0) * m;

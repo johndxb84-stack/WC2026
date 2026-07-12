@@ -159,7 +159,11 @@ export function scorePrediction(pred: {homeScore:number; awayScore:number; posse
   const possessionPoints = (pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0) * m;
   const firstGoalscorerPoints = (pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0) * m;
   // Correctly calling that the match goes the distance, regardless of the ET/penalty score itself.
-  const reachedExtraTimePoints = (pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null && fixture.homeScoreExtraTime != null ? 1 : 0) * m;
+  // A penalties bet implies the game reaches extra time, so it counts as an ET-reached
+  // prediction even when the ET score fields were left empty.
+  const predictedExtraTime = (pred.homeScoreExtraTime != null && pred.awayScoreExtraTime != null)
+    || (pred.homePenaltyScore != null && pred.awayPenaltyScore != null);
+  const reachedExtraTimePoints = (predictedExtraTime && fixture.homeScoreExtraTime != null ? 1 : 0) * m;
   const extraTimePoints = (fixture.homeScoreExtraTime != null && pred.homeScoreExtraTime === fixture.homeScoreExtraTime && pred.awayScoreExtraTime === fixture.awayScoreExtraTime ? 1 : 0) * m;
   const reachedPenaltiesPoints = (pred.homePenaltyScore != null && pred.awayPenaltyScore != null && fixture.homePenaltyScore != null ? 1 : 0) * m;
   const penaltyPoints = (fixture.homePenaltyScore != null && pred.homePenaltyScore === fixture.homePenaltyScore && pred.awayPenaltyScore === fixture.awayPenaltyScore ? 1 : 0) * m;

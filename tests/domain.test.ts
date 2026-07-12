@@ -31,8 +31,9 @@ describe('scoring and settlement', () => {
  it('awards outcome when predictor expected ET but winner finished in regulation', () => expect(scorePrediction({homeScore:1,awayScore:1,homeScoreExtraTime:0,awayScoreExtraTime:1},{...fixture,homeScore90:0,awayScore90:1}).outcomePoints).toBe(1));
  it('awards outcome when predictor called a regulation winner that actually won in ET', () => expect(scorePrediction({homeScore:2,awayScore:1},{...fixture,homeScore90:1,awayScore90:1,homeScoreExtraTime:2,awayScoreExtraTime:1}).outcomePoints).toBe(1));
  it('awards outcome to the penalty-shootout winner', () => expect(scorePrediction({homeScore:1,awayScore:1,homePenaltyScore:5,awayPenaltyScore:4},{...fixture,homeScore90:1,awayScore90:1,homePenaltyScore:5,awayPenaltyScore:4}).outcomePoints).toBe(1));
- // Exact score is strictly the 90' line vs the 90' score — final/AET lines never pay it.
- it('no exact score when the 90\' line only matches the after-ET score', () => expect(scorePrediction({homeScore:1,awayScore:2},{...fixture,homeScore90:1,awayScore90:1,homeScoreExtraTime:1,awayScoreExtraTime:2}).exactScorePoints).toBe(0));
+ // Exact score: 90' line vs 90' score, plus a pure FT bet matching the after-ET final.
+ it('awards exact score when a pure FT bet matches the after-ET final score', () => expect(scorePrediction({homeScore:1,awayScore:2},{...fixture,homeScore90:1,awayScore90:1,homeScoreExtraTime:1,awayScoreExtraTime:2}).exactScorePoints).toBe(2));
+ it('no exact score when an ET bettor\'s 90\' line only matches the after-ET final', () => expect(scorePrediction({homeScore:1,awayScore:2,homeScoreExtraTime:2,awayScoreExtraTime:3},{...fixture,homeScore90:1,awayScore90:1,homeScoreExtraTime:1,awayScoreExtraTime:2}).exactScorePoints).toBe(0));
  it('no exact score when the AET line matches the FT score of a game with no ET', () => expect(scorePrediction({homeScore:1,awayScore:1,homeScoreExtraTime:2,awayScoreExtraTime:1},{...fixture,homeScore90:2,awayScore90:1}).exactScorePoints).toBe(0));
  it('no outcome point when the eventual winners differ', () => expect(scorePrediction({homeScore:1,awayScore:1,homeScoreExtraTime:2,awayScoreExtraTime:1},{...fixture,homeScore90:0,awayScore90:1}).outcomePoints).toBe(0));
  // Reaching extra time / penalties is its own point, independent of getting the ET/penalty score right.

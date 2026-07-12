@@ -144,7 +144,17 @@ export function scorePrediction(pred: {homeScore:number; awayScore:number; posse
   // Point values double for games from NEW_POINTS_FROM onward; earlier games keep their original values.
   const m = pointMultiplier(fixture.kickoff);
   const outcomePoints = (predWinner === actualWinner ? 1 : 0) * m;
-  const exactScorePoints = (pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90 ? 2 : 0) * m;
+  // Exact score: the 90' line vs the 90' score, plus one asymmetric rescue. A pure
+  // full-time bet (no ET fields) is a FINAL-score call — if the game goes to extra
+  // time, the after-ET score is technically the game's full-time score, so matching
+  // it still pays. The reverse never pays: an ET bet on a game that ended at FT is
+  // simply a lost bet, even when its numbers coincide with the final score.
+  const matches90 = pred.homeScore === fixture.homeScore90 && pred.awayScore === fixture.awayScore90;
+  const pureFtBet = pred.homeScoreExtraTime == null || pred.awayScoreExtraTime == null;
+  const ftBetMatchesEtFinal = pureFtBet
+    && fixture.homeScoreExtraTime != null && fixture.awayScoreExtraTime != null
+    && pred.homeScore === fixture.homeScoreExtraTime && pred.awayScore === fixture.awayScoreExtraTime;
+  const exactScorePoints = (matches90 || ftBetMatchesEtFinal ? 2 : 0) * m;
   const actualPossession = fixture.homePossession == null || fixture.awayPossession == null ? undefined : fixture.homePossession === fixture.awayPossession ? 'EQUAL' : fixture.homePossession > fixture.awayPossession ? 'HOME' : 'AWAY';
   const possessionPoints = (pred.possession && actualPossession && pred.possession === actualPossession ? 1 : 0) * m;
   const firstGoalscorerPoints = (pred.firstGoalscorerId !== undefined && pred.firstGoalscorerId === (fixture.firstGoalscorerId ?? null) ? 1 : 0) * m;
